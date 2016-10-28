@@ -61,7 +61,7 @@ void PositionPID::Compute()
 	double input = *MyInput;
 	double error = *MySetpoint - input;
 	ITerm += (ki * error);
-	if ( ITerm > Saturator ) ITerm = Saturator; //�ϕ��v�f�̔��U��h�����߁A�T�`�����[�^�[�����Ă�B
+	if ( ITerm > Saturator ) ITerm = Saturator; //積分要素の発散を防ぐため、サチュレーターを入れてる。
 	else if ( ITerm < -Saturator ) ITerm = -Saturator; 
 	double dInput = (input - LastInput);
 

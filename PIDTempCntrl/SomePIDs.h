@@ -1,5 +1,5 @@
 // SomePIDs.h
-// Arduino-PID-Library( https://github.com/br3ttb/Arduino-PID-Library )‚ğQl‚É‚µ‚Äì‚Á‚Ä‚Ü‚·
+// Arduino-PID-Library( https://github.com/br3ttb/Arduino-PID-Library )ã‚’å‚è€ƒã«ã—ã¦ä½œã£ã¦ã¾ã™
 
 #ifndef _SOMEPIDS_h
 #define _SOMEPIDS_h
@@ -11,8 +11,8 @@
 #endif
 
 /*
-‚¢‚ë‚ñ‚ÈPID
-Setpoint‚Í–Ú•W’l
+ã„ã‚ã‚“ãªPID
+Setpointã¯ç›®æ¨™å€¤
 */
 class IPID
 {
@@ -38,7 +38,7 @@ protected:
 
 };
 
-//ˆÊ’uŒ^
+//ä½ç½®å‹
 class PositionPID :public IPID
 {
 public:
@@ -51,10 +51,10 @@ private:
 	void Initialize();
 
 	double ITerm, LastInput;
-	double Saturator; //Ï•ª—v‘f(ITerm)‚Ì”­U‚ğ–h‚®‚½‚ß‚ÌƒTƒ`ƒ…ƒŒ[ƒ^[
+	double Saturator; //ç©åˆ†è¦ç´ (ITerm)ã®ç™ºæ•£ã‚’é˜²ããŸã‚ã®ã‚µãƒãƒ¥ãƒ¬ãƒ¼ã‚¿ãƒ¼
 };
 
-//‘¬“xŒ^
+//é€Ÿåº¦å‹
 class VelocityPID :public IPID
 {
 public:
@@ -68,7 +68,7 @@ private:
 	double LastError, SecondLastError;
 };
 
-//”÷•ªæsŒ^
+//å¾®åˆ†å…ˆè¡Œå‹
 class VelocityPID_IPd : public IPID
 {
 public:
@@ -84,7 +84,7 @@ private:
 
 };
 
-//”ä—á”÷•ªæsŒ^
+//æ¯”ä¾‹å¾®åˆ†å…ˆè¡Œå‹
 class VelocityPID_Ipd : public IPID
 {
 public:

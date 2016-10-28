@@ -13,11 +13,11 @@
 #include "ElectricFurnace.h"
 
 
-//ŠÔŒn‚Íƒ~ƒŠ•b‚¾‚æ
+//æ™‚é–“ç³»ã¯ãƒŸãƒªç§’ã ã‚ˆ
 
-//--------------------------------------------------------ƒ}ƒNƒ--------------------------------------------------------
+//--------------------------------------------------------ãƒã‚¯ãƒ­--------------------------------------------------------
 
-//‰æ–Ê‚Ì•\¦ó‘Ô‚ğŒˆ‚ß‚é’lB–¼‘O‚ª•Ï‚È‹C‚ª‚·‚éB
+//ç”»é¢ã®è¡¨ç¤ºçŠ¶æ…‹ã‚’æ±ºã‚ã‚‹å€¤ã€‚åå‰ãŒå¤‰ãªæ°—ãŒã™ã‚‹ã€‚
 #define SetupDisplayMode 0
 #define TemperatureDisplayMode 1
 #define TimeDisplayMode 2
@@ -25,13 +25,13 @@
 #define ENDDisplayMode 4
 #define ErrorDisplayMode 5
 
-#define DISPLAYCHANGETIME 3000 //‰æ–Ê‚Ì©“®‘JˆÚ‚ÌŠÔŠu
+#define DISPLAYCHANGETIME 3000 //ç”»é¢ã®è‡ªå‹•é·ç§»ã®é–“éš”
 
 
-//--------------------------------------------------------ƒNƒ‰ƒX‚Ì’è‹`--------------------------------------------------------
+//--------------------------------------------------------ã‚¯ãƒ©ã‚¹ã®å®šç¾©--------------------------------------------------------
 
 
-//¡‰ñg—p‚·‚é”M“d‘Î‚ğIThermometer‚ÌŒ`‚Éƒ‰ƒbƒv
+//ä»Šå›ä½¿ç”¨ã™ã‚‹ç†±é›»å¯¾ã‚’IThermometerã®å½¢ã«ãƒ©ãƒƒãƒ—
 class Thermocouple : public IThermometer
 {
 public:
@@ -43,8 +43,8 @@ private:
 
 
 /*
-¡‰ñ‚ÍLCD‚Éî•ñ‚ğ•\¦‚µ‚È‚ª‚ç“d‹C˜F‚Ì§Œä‚ğs‚¤\¬‚É‚µ‚½‚Ì‚Å
-Furnace‚ğŠg’£‚µALCD‚Éî•ñ‚ğ•\¦‚Å‚«‚é‚ÉB
+ä»Šå›ã¯LCDã«æƒ…å ±ã‚’è¡¨ç¤ºã—ãªãŒã‚‰é›»æ°—ç‚‰ã®åˆ¶å¾¡ã‚’è¡Œã†æ§‹æˆã«ã—ãŸã®ã§
+Furnaceã‚’æ‹¡å¼µã—ã€LCDã«æƒ…å ±ã‚’è¡¨ç¤ºã§ãã‚‹ã«ã€‚
 */
 class FurnaceDisplay : public Furnace
 {
@@ -52,28 +52,28 @@ public:
 	FurnaceDisplay(uint8_t RelayControlPin, IThermometer* thermometer, LiquidCrystal* lcd);
 	void Setup();
 	void Start();
-	bool Tick(); //Furnace‚ªTrue‚ğ•Ô‚µ‚½‚É‰æ–Ê•\¦‚ÌXV‚ğs‚¢True‚ğ•Ô‚·B
+	bool Tick(); //FurnaceãŒTrueã‚’è¿”ã—ãŸæ™‚ã«ç”»é¢è¡¨ç¤ºã®æ›´æ–°ã‚’è¡Œã„Trueã‚’è¿”ã™ã€‚
 	void Stop();
 
-	void PrevDisplay(); //Ÿ‚Ì‰æ–Ê‚É‘JˆÚBTemperature,Time,ControlInfo‚ğ‚®‚é‚®‚é‚·‚éB
-	void NextDisplay(); //‘O‚Ì‰æ–Ê‚É‘JˆÚBTemperature,Time,ControlInfo‚ğ‚®‚é‚®‚é‚·‚éB
-	void SetDisplayChanging(); //©“®‰æ–Ê‘JˆÚ‚Ìƒtƒ‰ƒO‚ğ”½“]‚³‚¹‚éB
-	void SetDisplayChanging(bool flag); //©“®‚Å‰æ–Ê‘JˆÚ‚·‚é‚©‚Ç‚¤‚©B
-	void SetDisplayMode(uint8_t displayMode); //”CˆÓ‚Ì‰æ–Ê‚ğ•\¦‚·‚éB
+	void PrevDisplay(); //æ¬¡ã®ç”»é¢ã«é·ç§»ã€‚Temperature,Time,ControlInfoã‚’ãã‚‹ãã‚‹ã™ã‚‹ã€‚
+	void NextDisplay(); //å‰ã®ç”»é¢ã«é·ç§»ã€‚Temperature,Time,ControlInfoã‚’ãã‚‹ãã‚‹ã™ã‚‹ã€‚
+	void SetDisplayChanging(); //è‡ªå‹•ç”»é¢é·ç§»ã®ãƒ•ãƒ©ã‚°ã‚’åè»¢ã•ã›ã‚‹ã€‚
+	void SetDisplayChanging(bool flag); //è‡ªå‹•ã§ç”»é¢é·ç§»ã™ã‚‹ã‹ã©ã†ã‹ã€‚
+	void SetDisplayMode(uint8_t displayMode); //ä»»æ„ã®ç”»é¢ã‚’è¡¨ç¤ºã™ã‚‹ã€‚
 
 	void DataOutputBySerial();
 
 private:
-	uint8_t DisplayMode; //•\¦‚µ‚Ä‚¢‚é‰æ–Ê
-	SimpleTimerThread DisplayChangeTimer; //‰æ–Ê‚Ì©“®‘JˆÚ‚Ì‚½‚ß‚Ìƒ^ƒCƒ}[
-	LiquidCrystal* LCD; //•\¦—p‚ÌLCDB•Ê‚ÌêŠ‚ÅƒCƒ“ƒXƒ^ƒ“ƒX‚Ì¶¬‚ªo—ˆ‚½‚Ù‚¤‚ªK‚¹‚È‚Ì‚ÅB
+	uint8_t DisplayMode; //è¡¨ç¤ºã—ã¦ã„ã‚‹ç”»é¢
+	SimpleTimerThread DisplayChangeTimer; //ç”»é¢ã®è‡ªå‹•é·ç§»ã®ãŸã‚ã®ã‚¿ã‚¤ãƒãƒ¼
+	LiquidCrystal* LCD; //è¡¨ç¤ºç”¨ã®LCDã€‚åˆ¥ã®å ´æ‰€ã§ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã®ç”ŸæˆãŒå‡ºæ¥ãŸã»ã†ãŒå¹¸ã›ãªã®ã§ã€‚
 
-	void PrintTemperature(double InputTemperature); //‰æ–Ê‚É‰·“x‚ğ•\¦‚·‚é
-	void PrintTime(unsigned long InputTime); //‰æ–Ê‚ÉŠÔ‚ğ•\¦‚·‚éB99:59:59‚ğ’´‚¦‚é‚ÆˆÊ’u‚¸‚ê‚·‚éB
+	void PrintTemperature(double InputTemperature); //ç”»é¢ã«æ¸©åº¦ã‚’è¡¨ç¤ºã™ã‚‹
+	void PrintTime(unsigned long InputTime); //ç”»é¢ã«æ™‚é–“ã‚’è¡¨ç¤ºã™ã‚‹ã€‚99:59:59ã‚’è¶…ãˆã‚‹ã¨ä½ç½®ãšã‚Œã™ã‚‹ã€‚
 
-	void Update(); //DisplayMode‚É]‚¢‰æ–Ê‚ğXV‚·‚éB
+	void Update(); //DisplayModeã«å¾“ã„ç”»é¢ã‚’æ›´æ–°ã™ã‚‹ã€‚
 
-//•\¦‚·‚é‰æ–Ê‚Ì’†g
+//è¡¨ç¤ºã™ã‚‹ç”»é¢ã®ä¸­èº«
 	void DisplaySetupMode();
 	void DisplayTemperature();
 	void DisplayTime();
@@ -84,16 +84,16 @@ private:
 
 
 /*
-‹[—•À—ñÀs‰Â”\‚ÈƒuƒU[
-ˆê“x‚¾‚¯–Â‚ç‚·Aˆê’èüŠú‚²‚Æ‚ÉŒJ‚è•Ô‚µ–Â‚ç‚·‚Ì‚Ç‚¿‚ç‚©‚ª‰Â”\B
+æ“¬ä¼¼ä¸¦åˆ—å®Ÿè¡Œå¯èƒ½ãªãƒ–ã‚¶ãƒ¼
+ä¸€åº¦ã ã‘é³´ã‚‰ã™ã€ä¸€å®šå‘¨æœŸã”ã¨ã«ç¹°ã‚Šè¿”ã—é³´ã‚‰ã™ã®ã©ã¡ã‚‰ã‹ãŒå¯èƒ½ã€‚
 */
 class BuzzerThread :public ThreadBase
 {
 public:
 	BuzzerThread(uint8_t controlPin);
-	void SetSound(unsigned long interval, unsigned long soundLength); //interval‚²‚Æ‚ÉsoundLength‚Ì’·‚³ƒuƒU[‚ğ–Â‚ç‚·B
-	void SoundOnce(unsigned long soundLength); //Às‚©‚çSoundLength‚Ì’·‚³ƒuƒU[‚ğ–Â‚ç‚·Bˆê“x–Â‚é‚Æƒ^ƒCƒ}[‚ª~‚Ü‚éB
-	bool Tick(); //‰¹‚ª–Â‚èn‚ß‚é‚ÉTrue‚ğ•Ô‚·B
+	void SetSound(unsigned long interval, unsigned long soundLength); //intervalã”ã¨ã«soundLengthã®é•·ã•ãƒ–ã‚¶ãƒ¼ã‚’é³´ã‚‰ã™ã€‚
+	void SoundOnce(unsigned long soundLength); //å®Ÿè¡Œæ™‚ã‹ã‚‰SoundLengthã®é•·ã•ãƒ–ã‚¶ãƒ¼ã‚’é³´ã‚‰ã™ã€‚ä¸€åº¦é³´ã‚‹ã¨ã‚¿ã‚¤ãƒãƒ¼ãŒæ­¢ã¾ã‚‹ã€‚
+	bool Tick(); //éŸ³ãŒé³´ã‚Šå§‹ã‚ã‚‹æ™‚ã«Trueã‚’è¿”ã™ã€‚
 	void Start();
 	void Stop();
 
@@ -106,10 +106,10 @@ private:
 
 
 /*
-INPUT_PULLUP‚ğg‚Á‚½ƒ{ƒ^ƒ“ƒNƒ‰ƒXBƒ^ƒNƒgƒXƒCƒbƒ`‚ÌÚ‘±‚É’ˆÓB
-CanRepeat‚ğFalse‚É‚·‚é‚Æˆê“x‚¾‚¯
-CanRepeat‚ğTrue‚É‚·‚é‚Æ‰Ÿ‚µ‚Á‚Ï‚È‚µ‚Ì‚ÍRepeatTime‚ÌŠÔŠu‚ÅTrue‚ğ•Ô‚·B
-ƒ‹[ƒv‚µ‚È‚ª‚çƒ{ƒ^ƒ““ü—Í‚ğ‚·‚é‚Æ‚«‚ğ‘z’èB
+INPUT_PULLUPã‚’ä½¿ã£ãŸãƒœã‚¿ãƒ³ã‚¯ãƒ©ã‚¹ã€‚ã‚¿ã‚¯ãƒˆã‚¹ã‚¤ãƒƒãƒã®æ¥ç¶šã«æ³¨æ„ã€‚
+CanRepeatã‚’Falseã«ã™ã‚‹ã¨ä¸€åº¦ã ã‘
+CanRepeatã‚’Trueã«ã™ã‚‹ã¨æŠ¼ã—ã£ã±ãªã—ã®æ™‚ã¯RepeatTimeã®é–“éš”ã§Trueã‚’è¿”ã™ã€‚
+ãƒ«ãƒ¼ãƒ—ã—ãªãŒã‚‰ãƒœã‚¿ãƒ³å…¥åŠ›ã‚’ã™ã‚‹ã¨ãã‚’æƒ³å®šã€‚
 */
 class ButtonClass
 {

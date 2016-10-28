@@ -403,7 +403,7 @@ void ButtonClass::SetCanRepeat(bool canRepeat)
 
 bool ButtonClass::isPressed()
 {
-	if ( !digitalRead(ControlPin) ) //ƒvƒ‹ƒAƒbƒv‰ñ˜H‚È‚Ì‚ÅdigitalRead‚ªfalse‚Ì‚É‰Ÿ‚³‚ê‚Ä‚¢‚éB
+	if ( !digitalRead(ControlPin) ) //ãƒ—ãƒ«ã‚¢ãƒƒãƒ—å›è·¯ãªã®ã§digitalReadãŒfalseã®æ™‚ã«æŠ¼ã•ã‚Œã¦ã„ã‚‹ã€‚
 	{
 		if ( CanRepeat )
 		{

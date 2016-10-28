@@ -1,4 +1,4 @@
-﻿// Display.h
+// Display.h
 
 #ifndef _ElectricFurnace_h
 #define _ElectricFurnace_h

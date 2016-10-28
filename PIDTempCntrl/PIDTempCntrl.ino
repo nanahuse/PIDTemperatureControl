@@ -1,8 +1,8 @@
 #include "LCDFurnace.h"
 #include <LiquidCrystal.h>
 
-//--------------------------------------------------------ƒsƒ“‚Ìİ’è--------------------------------------------------------
-//”M“d‘Î
+//--------------------------------------------------------ãƒ”ãƒ³ã®è¨­å®š--------------------------------------------------------
+//ç†±é›»å¯¾
 #define TM_SSPIN 11
 #define TM_MISOPIN 12
 #define TM_SCKPIN 13
@@ -14,15 +14,15 @@
 #define LCD_DB5 5
 #define LCD_DB6 7
 #define LCD_DB7 6
-//ƒ{ƒ^ƒ“
+//ãƒœã‚¿ãƒ³
 #define LEFTSW  15
 #define CENTERSW  16
 #define RIGHTSW 17
-//‚»‚Ì‘¼
+//ãã®ä»–
 #define CONTROLPIN 2 //SSR
 #define BUZZERPIN 14 //Buzzer
 
-//--------------------------------------------------------•Ï”‚ÌéŒ¾--------------------------------------------------------
+//--------------------------------------------------------å¤‰æ•°ã®å®£è¨€--------------------------------------------------------
 Thermocouple thermocouple = Thermocouple(TM_SCKPIN, TM_SSPIN, TM_MISOPIN);
 LiquidCrystal LCD = LiquidCrystal(LCD_RS, LCD_RW, LCD_ENAB, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 FurnaceDisplay furnaceDisplay = FurnaceDisplay(CONTROLPIN, &thermocouple, &LCD);
@@ -33,7 +33,7 @@ ButtonClass CenterButton = ButtonClass(CENTERSW, false);
 ButtonClass LeftButton = ButtonClass(LEFTSW, false);
 
 
-//--------------------------------------------------------ƒƒCƒ“--------------------------------------------------------
+//--------------------------------------------------------ãƒ¡ã‚¤ãƒ³--------------------------------------------------------
 void setup()
 {
 	furnaceDisplay.Setup();
@@ -62,7 +62,7 @@ void loop()
 		}
 		if ( furnaceDisplay.ShowStatus() == StatusFinish )
 		{
-			//Ä‚«‚ªI—¹‚µ‚½‚çƒuƒU[‚ğ–Â‚ç‚·B^‚ñ’†‚Ìƒ{ƒ^ƒ“‚ğ‰Ÿ‚µ‚½‚çŠJ•úB
+			//ç„¼ããŒçµ‚äº†ã—ãŸã‚‰ãƒ–ã‚¶ãƒ¼ã‚’é³´ã‚‰ã™ã€‚çœŸã‚“ä¸­ã®ãƒœã‚¿ãƒ³ã‚’æŠ¼ã—ãŸã‚‰é–‹æ”¾ã€‚
 			Buzzer.SetSound(3000, 500);
 			Buzzer.Start();
 			while ( !CenterButton.isPressed() )
@@ -94,10 +94,10 @@ void loop()
 }
 
 /*
-Šo‘
+è¦šæ›¸
 
-‰·“x‚Ì‘ª’è‚¨‚æ‚ÑŒvZ‚É•K—v‚ÈŠÔ‚Í30-40ms‚­‚ç‚¢BƒCƒ“ƒ^[ƒoƒ‹‚ª200ms‚Í‚Ù‚µ‚¢B¦31855‚Æ“¯—ñ’áƒOƒŒ[ƒh•i‚Ì”M“d‘ÎƒAƒ“ƒvMAX6675‚Å‚ÌÀŒ±Œ‹‰Ê
-‚±‚ÌPIDƒ‰ƒCƒuƒ‰ƒŠ[‚Ìˆê‰ñ‚ÌŒvZŠÔ‚Í20ms’ö“xB
-¦Arduino Nano‚Ìê‡
+æ¸©åº¦ã®æ¸¬å®šãŠã‚ˆã³è¨ˆç®—ã«å¿…è¦ãªæ™‚é–“ã¯30-40msãã‚‰ã„ã€‚ã‚¤ãƒ³ã‚¿ãƒ¼ãƒãƒ«ãŒ200msã¯ã»ã—ã„ã€‚â€»31855ã¨åŒåˆ—ä½ã‚°ãƒ¬ãƒ¼ãƒ‰å“ã®ç†±é›»å¯¾ã‚¢ãƒ³ãƒ—MAX6675ã§ã®å®Ÿé¨“çµæœ
+ã“ã®PIDãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€å›ã®è¨ˆç®—æ™‚é–“ã¯20msç¨‹åº¦ã€‚
+â€»Arduino Nanoã®å ´åˆ
 */
 
