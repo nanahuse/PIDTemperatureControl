@@ -87,7 +87,7 @@ private:
 擬似並列実行可能なブザー
 一度だけ鳴らす、一定周期ごとに繰り返し鳴らすのどちらかが可能。
 */
-class BuzzerThread :public ThreadBase
+class BuzzerThread :public SimpleTimerThread
 {
 public:
 	BuzzerThread(uint8_t controlPin);

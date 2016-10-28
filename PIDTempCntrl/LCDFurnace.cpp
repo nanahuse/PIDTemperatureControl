@@ -12,7 +12,7 @@ double Thermocouple::Read()
 	return thermocouple.readCelsius();
 }
 
-FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer* thermometer, LiquidCrystal* lcd) : Furnace(RelayControlPin, thermometer),DisplayChangeTimer()
+FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer* thermometer, LiquidCrystal* lcd) : Furnace(RelayControlPin, thermometer), DisplayChangeTimer()
 {
 	DisplayMode = SetupDisplayMode;
 	LCD = lcd;
@@ -106,7 +106,7 @@ void FurnaceDisplay::PrevDisplay()
 
 void FurnaceDisplay::NextDisplay()
 {
-	if ( (DisplayMode <= ControlInfoDispalyMode) &&(DisplayMode != SetupDisplayMode) )
+	if ( (DisplayMode <= ControlInfoDispalyMode) && (DisplayMode != SetupDisplayMode) )
 	{
 		DisplayChangeTimer.Start();
 		if ( DisplayMode == ControlInfoDispalyMode )
@@ -332,8 +332,8 @@ void BuzzerThread::SoundOnce(unsigned long soundLength)
 {
 	SetTimerStop(IntervalTimer);
 	LengthTimer = millis() + soundLength;
-	Length = 0;
-	Interval = 0;
+	SetTimerStop(Interval);
+	SetTimerStop(Length);
 	digitalWrite(ControlPin, HIGH);
 }
 
@@ -380,6 +380,7 @@ ButtonClass::ButtonClass(uint8_t controlPin, bool canRepeat) : Timer()
 	ControlPin = controlPin;
 	pinMode(ControlPin, INPUT_PULLUP);
 	SetCanRepeat(CanRepeat);
+	SetRepeatTime(100);
 	OldStatus = false;
 }
 
@@ -396,7 +397,7 @@ void ButtonClass::SetCanRepeat(bool canRepeat)
 	CanRepeat = canRepeat;
 	if ( !CanRepeat )
 	{
-		Timer.Stop();
+		Timer.SetInterval(100); //チャタリングの防止用
 		OldStatus = false;
 	}
 }
@@ -405,17 +406,18 @@ bool ButtonClass::isPressed()
 {
 	if ( !digitalRead(ControlPin) ) //プルアップ回路なのでdigitalReadがfalseの時に押されている。
 	{
-		if ( CanRepeat )
+		if ( Timer.Tick() )
 		{
 			if ( OldStatus )
 			{
-				if ( Timer.Tick() )
+				if ( CanRepeat )
 				{
 					return true;
 				}
 				else
 				{
 					return false;
+					Timer.Stop();
 				}
 			}
 			else
@@ -427,20 +429,19 @@ bool ButtonClass::isPressed()
 		}
 		else
 		{
-			if ( OldStatus )
-			{
-				return false;
-			}
-			else
-			{
-				OldStatus = true;
-				return true;
-			}
+			return false;
 		}
 	}
 	else
 	{
-		OldStatus = false;
+		if ( OldStatus )
+		{
+			OldStatus = false;
+			if ( !CanRepeat )
+			{
+				Timer.Start();
+			}
+		}
 		return false;
 
 	}
