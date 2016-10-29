@@ -93,9 +93,6 @@ Furnace::Furnace(uint8_t RelayControlPin, IThermometer &thermometer) : PIDContro
 	AverageTemperature = 0.0;
 	NowTemperature = 0.0;
 
-	StartTime = 0;
-	FinishTimer = 0;
-	KeepTimer = 0;
 	SetTimerStop(IntervalTimer);
 
 	WorkStatus = StatusStop;
@@ -129,9 +126,6 @@ void Furnace::Start()
 	RelayController.Start();
 
 	SetIntervalTimer(millis());
-	WorkStatus = StatusToFirstKeepTemp;
-	CalcFinishTime();
-
 }
 
 void Furnace::Start(FurnaceStatus StartMode)
@@ -160,7 +154,6 @@ bool Furnace::Tick()
 	if (millis() >= IntervalTimer)
 	{
 		GetTemperature();
-		UpdateGoalTemperature();
 		if (WorkStatus != StatusFinish)
 		{
 			PIDController.Compute();
@@ -196,6 +189,7 @@ void Furnace::GetTemperature()
 	if (isnan(NowTemperature))
 	{
 		NowTemperature = OldTemperature;
+		ErrorStatus = ErrorNotGetTemperature;
 	}
 	else
 	{
@@ -204,73 +198,9 @@ void Furnace::GetTemperature()
 
 	//PIDに突っ込む温度。均すために平均っぽくしてる。
 	AverageTemperature = (AverageTemperature + NowTemperature) * 0.5;
+
+	TemperatureController.InputTemperature(AverageTemperature);
 }
-
-void Furnace::UpdateGoalTemperature()
-{
-	switch (WorkStatus)
-	{
-	case StatusStop:
-		break;
-	case StatusManual:
-		break;
-	case StatusToFirstKeepTemp:
-		if (FIRSTKEEPTEMP > AverageTemperature + TEMPCONTROLLENGTH) 
-		{
-			RisingTemperature();
-		}
-		else
-		{ //保持温度付近に到達したら制御値を保持温度にして維持する
-			CalcFinishTime();
-			KeepTimer = millis();
-			GoalTemperature = FIRSTKEEPTEMP;
-			WorkStatus = StatusKeepFirstKeepTemp;
-		}
-		break;
-
-	case StatusKeepFirstKeepTemp:
-		if (millis() - KeepTimer >= FIRSTKEEPMILLIS)
-		{
-			WorkStatus = StatusToSecondKeepTemp;
-		}
-		break;
-
-	case StatusToSecondKeepTemp:
-		if (SECONDKEEPTEMP > AverageTemperature + TEMPCONTROLLENGTH)
-		{
-			RisingTemperature();
-		}
-		else
-		{ //保持温度付近に到達したら制御値を保持温度にして維持する
-			CalcFinishTime();
-			KeepTimer = millis();
-			GoalTemperature = SECONDKEEPTEMP;
-			WorkStatus = StatusKeepSecondkeepTemp;
-		}
-		break;
-
-	case StatusKeepSecondkeepTemp:
-		if (millis() - KeepTimer >= SECONDKEEPMILLIS)
-		{ //焼き終わり。リレーをオフにして冷やしていく。
-			GoalTemperature = 0.0;
-			RelayController.Stop();
-			WorkStatus = StatusFinish;
-		}
-		break;
-
-	case StatusFinish:
-		//END
-		break;
-
-	default:
-		//ERROR ここに来てしまったらどうしようもない。
-		Stop();
-		ErrorStatus = ErrorUnknown;
-		WorkStatus = StatusError;
-		break;
-	}
-}
-
 
 FurnaceStatus Furnace::ShowStatus()
 {
@@ -292,37 +222,9 @@ void Furnace::SetGoalTemperature(double goal)
 	}
 }
 
-void Furnace::RisingTemperature()
+void Furnace::SetTemperatureController(ITemperatureController &temeperatureController)
 {
-	GoalTemperature += INCTEMPperINTERVAL;
-
-	if (GoalTemperature > AverageTemperature + TEMPCONTROLLENGTH)
-	{
-		ErrorStatus = ErrorNotEnoughTemperatureUpward;
-		GoalTemperature = AverageTemperature + TEMPCONTROLLENGTH;
-		CalcFinishTime();
-	}
-}
-
-void  Furnace::CalcFinishTime()
-{
-	FinishTimer = 0;
-	if (WorkStatus >= StatusToFirstKeepTemp);
-	{
-		FinishTimer = millis();
-
-		if (WorkStatus == StatusToFirstKeepTemp)
-		{
-			FinishTimer += FIRSTKEEPMILLIS;
-		}
-
-		if (WorkStatus <= StatusToSecondKeepTemp)
-		{
-			FinishTimer += SECONDKEEPMILLIS;
-		}
-
-		FinishTimer += (unsigned long)((SECONDKEEPTEMP - (float)AverageTemperature) * MILLISperINCTEMP);
-	}
+	TemperatureController = temeperatureController;
 }
 
 void Furnace::UpdateIntervalTImer()

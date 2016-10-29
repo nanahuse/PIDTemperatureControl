@@ -28,7 +28,30 @@ enum DisplayMode
 	ErrorDisplayMode
 };
 
-#define DISPLAYCHANGETIME 3000 //画面の自動遷移の間隔
+//Furnace(炉)の稼働状態を表す。Furnace::ShowStatusで返る値。
+enum FurnaceStatus
+{
+	StatusStop = 0,
+	StatusManual, //マニュアルで温度調整出来るモード
+	StatusToFirstKeepTemp,
+	StatusKeepFirstKeepTemp,
+	StatusToSecondKeepTemp,
+	StatusKeepSecondkeepTemp,
+	StatusFinish,
+	StatusError //回復不可能なエラー
+};
+
+//温度設定
+const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerMillis = 0.00003333333333333333;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
+const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerInterval = IncreaseTemperaturePerMillis*CONTROLINTERVAL;
+const double TemperatuerControllerThreadForPrepreg::MillisPerIncreaseTemperature = 1.0 / IncreaseTemperaturePerMillis;//終了時間の計算のために1周期あたりの計算
+const double TemperatuerControllerThreadForPrepreg::FirstKeepTemperature = 80.0 + TEMPCONTROLLENGTH; //第一保持温度(℃)
+const unsigned long TemperatuerControllerThreadForPrepreg::FirstKeepTime = 1800000; //30分維持
+const double TemperatuerControllerThreadForPrepreg::SecondKeepTemperature = 130.0 + TEMPCONTROLLENGTH; //第二保持温度(℃)
+const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 7200000; //120分維持
+
+
+const unsigned long FurnaceDisplay::DisplayChangeTime = 3000; //画面の自動遷移の間隔
 
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
@@ -44,10 +67,43 @@ private:
 	MAX6675 thermocouple;
 };
 
+class TemperatuerControllerThreadForPrepreg : ITemperatureController, SimpleTimerThread
+{
+public:
+	TemperatuerControllerThreadForPrepreg();
+
+	bool Tick();
+	void Start();
+	void Stop();
+
+	double& ShowGoalTemperatureReference();
+	double ShowGoalTemperature();
+	void InputTemperature(double Temperature);
+	void ErrorHandling(FurnaceError ErrorNumber);
+private:
+	double GoalTemperature;
+	double MinimumTemperature;
+	unsigned long KeepTimer, StartTime, FinishTimer; //温度維持のため、焼きの開始時間、焼きの終了予想時間を示すタイマー
+
+	FurnaceStatus WorkStatus;
+
+	void UpdateGoalTemperature(); //目標温度を制御状態に合わせて変化させる。ここをインターフェースを用意して別クラスにすれば汎用性が出そう。
+	void RisingTemperature(); //目標温度を上昇させる。実際の温度と離れると補正がはいる。
+	void CalcFinishTime(); //終了予定時間の計算をする。
+
+	static const double IncreaseTemperaturePerMillis;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
+	static  const double IncreaseTemperaturePerInterval;
+	static const double MillisPerIncreaseTemperature;//終了時間の計算のために1周期あたりの計算
+	static const double FirstKeepTemperature; //第一保持温度(℃)
+	static const unsigned long FirstKeepTime; //30分維持
+	static const double SecondKeepTemperature; //第二保持温度(℃)
+	static const unsigned long SecondKeepTime; //120分維持
+
+};
 
 /*
 今回はLCDに情報を表示しながら電気炉の制御を行う構成にしたので
-Furnaceを拡張し、LCDに情報を表示できるに。
+Furnaceを拡張し、LCDに情報を表示できるように。
 */
 class FurnaceDisplay : public Furnace
 {
@@ -83,6 +139,8 @@ private:
 	void DisplayControlInfo();
 	void DisplayENDMode();
 	void DisplayError();
+
+	static const unsigned long DisplayChangeTime; //画面の自動遷移の間隔
 };
 
 
@@ -90,7 +148,7 @@ private:
 擬似並列実行可能なブザー
 一度だけ鳴らす、一定周期ごとに繰り返し鳴らすのどちらかが可能。
 */
-class BuzzerThread :public SimpleTimerThread
+class BuzzerThread :private SimpleTimerThread
 {
 public:
 	BuzzerThread(uint8_t controlPin);

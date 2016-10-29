@@ -21,7 +21,7 @@ void FurnaceDisplay::Setup()
 {
 	LCD.begin(16, 2);
 	DisplaySetupMode();
-	DisplayChangeTimer.SetInterval(DISPLAYCHANGETIME);
+	DisplayChangeTimer.SetInterval(DisplayChangeTime);
 }
 
 void FurnaceDisplay::SetDisplayMode(DisplayMode displayMode)
@@ -448,4 +448,123 @@ bool ButtonClass::isPressed()
 		return false;
 
 	}
+}
+
+double& TemperatuerControllerThreadForPrepreg::ShowGoalTemperatureReference()
+{
+	return GoalTemperature;
+}
+
+double TemperatuerControllerThreadForPrepreg::ShowGoalTemperature()
+{
+	return GoalTemperature;
+}
+
+void TemperatuerControllerThreadForPrepreg::InputTemperature(double Temperature)
+{
+	if ( Temperature < MinimumTemperature )
+	{
+		MinimumTemperature = Temperature;
+	}
+}
+
+void TemperatuerControllerThreadForPrepreg::UpdateGoalTemperature()
+{
+	switch ( WorkStatus )
+	{
+		case StatusStop:
+			break;
+		case StatusManual:
+			break;
+		case StatusToFirstKeepTemp:
+			if ( FirstKeepTemperature > MinimumTemperature + TEMPCONTROLLENGTH )
+			{
+				RisingTemperature();
+			}
+			else
+			{ //保持温度付近に到達したら制御値を保持温度にして維持する
+				CalcFinishTime();
+				KeepTimer = millis();
+				GoalTemperature = FirstKeepTemperature;
+				WorkStatus = StatusKeepFirstKeepTemp;
+			}
+			break;
+
+		case StatusKeepFirstKeepTemp:
+			if ( millis() - KeepTimer >= FirstKeepTime )
+			{
+				WorkStatus = StatusToSecondKeepTemp;
+			}
+			break;
+
+		case StatusToSecondKeepTemp:
+			if ( SecondKeepTemperature > MinimumTemperature + TEMPCONTROLLENGTH )
+			{
+				RisingTemperature();
+			}
+			else
+			{ //保持温度付近に到達したら制御値を保持温度にして維持する
+				CalcFinishTime();
+				KeepTimer = millis();
+				GoalTemperature = SecondKeepTemperature;
+				WorkStatus = StatusKeepSecondkeepTemp;
+			}
+			break;
+
+		case StatusKeepSecondkeepTemp:
+			if ( millis() - KeepTimer >= SecondKeepTemperature )
+			{ //焼き終わり。リレーをオフにして冷やしていく。
+				GoalTemperature = 0.0;
+				RelayController.Stop();
+				WorkStatus = StatusFinish;
+			}
+			break;
+
+		case StatusFinish:
+			//END
+			break;
+
+		default:
+			//ERROR ここに来てしまったらどうしようもない。
+			Stop();
+			ErrorStatus = ErrorUnknown;
+			WorkStatus = StatusError;
+			break;
+	}
+}
+
+void TemperatuerControllerThreadForPrepreg::RisingTemperature()
+{ 
+	GoalTemperature += IncreaseTemperaturePerInterval;
+
+	if ( GoalTemperature > MinimumTemperature + TEMPCONTROLLENGTH )
+	{
+		ErrorStatus = ErrorNotEnoughTemperatureUpward;
+		GoalTemperature = MinimumTemperature + TEMPCONTROLLENGTH;
+		CalcFinishTime();
+	}
+}
+
+void TemperatuerControllerThreadForPrepreg::CalcFinishTime()
+{
+		unsigned long TempTime = 0;
+		FinishTimer = millis();
+
+		if ( WorkStatus == StatusToFirstKeepTemp )
+		{
+			TempTime += FirstKeepTime;
+		}
+
+		if ( WorkStatus <= StatusToSecondKeepTemp )
+		{
+			TempTime += SecondKeepTime;
+		}
+
+		TempTime += (unsigned long)((SecondKeepTemperature - (float)MinimumTemperature) * MillisPerIncreaseTemperature);
+
+		if ( TempTime > 359999000 )
+		{
+			TempTime = 359999000; //359999000は99:59:59をミリ秒に直したもの
+		}
+		FinishTimer += TempTime;
 }

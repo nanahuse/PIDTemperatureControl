@@ -15,25 +15,15 @@
 //--------------------------------------------------------マクロ--------------------------------------------------------
 //時間系は全てミリ秒
 
-//Furnace(炉)の稼働状態を表す。Furnace::ShowStatusで返る値。
-enum FurnaceStatus
-{
-	StatusStop = 0,
-	StatusManual, //マニュアルで温度調整出来るモード
-	StatusToFirstKeepTemp,
-	StatusKeepFirstKeepTemp,
-	StatusToSecondKeepTemp,
-	StatusKeepSecondkeepTemp,
-	StatusFinish,
-	StatusError //回復不可能なエラー
-};
+
 
 //Furnace(炉)のエラー状態を表す。Furnace::CheckErrorで返る値。
 enum FurnaceError
 {
 	ErrorNone = 0, //エラー無し　false
 	ErrorUnknown, //ならないと良いな。
-	ErrorNotEnoughTemperatureUpward //温度上昇が足りない
+	ErrorNotEnoughTemperatureUpward, //温度上昇が足りない
+	ErrorNotGetTemperature //温度計がうまく動かない
 };
 
 //時間系
@@ -45,14 +35,6 @@ enum FurnaceError
 #define CONTROLMAX 500.0 //PID出力上限。リレーが開きぱなしにならないように周期の半分にしてる
 #define CONTROLMIN 0.0 //PID出力下限
 
-//温度設定
-#define INCTEMPperMILLIS 0.00003333333333333333  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
-#define INCTEMPperINTERVAL INCTEMPperMILLIS*CONTROLINTERVAL
-#define MILLISperINCTEMP 1.0/INCTEMPperMILLIS //終了時間の計算のために1周期あたりの計算
-#define FIRSTKEEPTEMP (80.0+TEMPCONTROLLENGTH) //第一保持温度(℃)
-#define FIRSTKEEPMILLIS 1800000 //30分維持
-#define SECONDKEEPTEMP (130.0+TEMPCONTROLLENGTH) //第二保持温度(℃)
-#define SECONDKEEPMILLIS 7200000 //120分維持
 
 //PIDparameter
 #define KP 500.0
@@ -68,7 +50,7 @@ enum FurnaceError
 リレーを操作するクラス
 リレーをIntervalごとにOnTimeの長さだけ開放する。
 */
-class RelayThread : public ThreadBase
+class RelayThread : public SimpleTimerThread
 {
 public:
 	RelayThread(uint8_t controlPin);
@@ -84,6 +66,7 @@ private:
 	unsigned long SwitchingTimer, SafetyTimer;
 	unsigned long OnTime;
 	void UpdateIntervalTimer();
+
 };
 
 
@@ -99,11 +82,21 @@ public:
 };
 
 
+class ITemperatureController
+{
+public:
+	virtual double& ShowGoalTemperatureReference() = 0;
+	virtual double ShowGoalTemeperature() = 0;
+	virtual void InputTemperature(double Temperature) = 0;
+	virtual void ErrorHandling(FurnaceError ErrorNumber) = 0;
+};
+
+
 /*
 炉の制御クラス。
 リレーのオン時間をPID制御によって調整し、温度を制御する。SISO。
 */
-class Furnace :public  ThreadBase
+class Furnace :protected  SimpleTimerThread
 {
 public:
 	Furnace(uint8_t RelayControlPin, IThermometer &thermometer);
@@ -118,6 +111,8 @@ public:
 
 	void SetGoalTemperature(double goal); //目標温度の設定。マニュアルモードのみで有効。
 
+	static void SetTemperatureController(ITemperatureController &temeperatureController);
+
 protected:
 
 	RelayThread RelayController;
@@ -128,17 +123,14 @@ protected:
 
 	//Temperature
 	IThermometer &Thermometer; //炉の温度を取得するための温度計
-	unsigned long KeepTimer, StartTime, FinishTimer; //温度維持のため、焼きの開始時間、焼きの終了予想時間を示すタイマー
 	double OldTemperature, AverageTemperature, NowTemperature; //ひとつ前の、平均化した、現在の温度
 	FurnaceStatus WorkStatus; //炉の制御状態。
     FurnaceError ErrorStatus; //エラーが起きているときのエラーの情報。
 
+	static ITemperatureController &TemperatureController; //温度の変化を制御するコントローラー 全部の並列で走らせても共通されるようにstatic
 
 private:
 	void GetTemperature(); //温度を取得する。エラーが出た時は一つ前に取得できた値を使用する。
-	void UpdateGoalTemperature(); //目標温度を制御状態に合わせて変化させる。ここをインターフェースを用意して別クラスにすれば汎用性が出そう。
-	void RisingTemperature(); //目標温度を上昇させる。実際の温度と離れると補正がはいる。
-	void CalcFinishTime(); //終了予定時間の計算をする。
 	void UpdateIntervalTImer();
 };
 

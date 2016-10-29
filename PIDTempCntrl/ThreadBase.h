@@ -27,14 +27,9 @@ public:
 	virtual bool Tick() = 0; //処理の実行。ループ内で使用する。タイマーによって処理が起きたときにTrueを返すようにする。
 	virtual void Start() = 0; //タイマーの開始処理他。
 	virtual void Stop() = 0; //タイマーの停止処理他。
-	virtual	void SetIntervalTimer(unsigned long Time) //IntervalTimerを任意の時間に設定する。これによって処理のタイミングを調整出来る。
-	{
-		IntervalTimer = Time;
-	};
 	virtual bool isRunning()=0; //タイマーを見ることで動いているかを確認する。
 
 protected:
-	unsigned long IntervalTimer;
 };
 
 
@@ -78,7 +73,7 @@ public:
 	}
 
 protected:
-	unsigned long Interval;
+	unsigned long IntervalTimer,Interval;
 	void UpdateIntervalTImer() //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ
 	{
 		unsigned long NowTime = millis();
