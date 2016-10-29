@@ -12,22 +12,21 @@ double Thermocouple::Read()
 	return thermocouple.readCelsius();
 }
 
-FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer* thermometer, LiquidCrystal* lcd) : Furnace(RelayControlPin, thermometer), DisplayChangeTimer()
+FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd) : Furnace(RelayControlPin, thermometer), DisplayChangeTimer(), LCD(lcd)
 {
-	DisplayMode = SetupDisplayMode;
-	LCD = lcd;
+	NowDisplayMode = SetupDisplayMode;
 }
 
 void FurnaceDisplay::Setup()
 {
-	LCD->begin(16, 2);
+	LCD.begin(16, 2);
 	DisplaySetupMode();
 	DisplayChangeTimer.SetInterval(DISPLAYCHANGETIME);
 }
 
-void FurnaceDisplay::SetDisplayMode(uint8_t displayMode)
+void FurnaceDisplay::SetDisplayMode(DisplayMode displayMode)
 {
-	DisplayMode = displayMode;
+	NowDisplayMode = displayMode;
 }
 
 void FurnaceDisplay::DataOutputBySerial()
@@ -52,7 +51,7 @@ void FurnaceDisplay::Start()
 {
 	Furnace::Start();
 	DisplayChangeTimer.Start();
-	DisplayMode = ControlInfoDispalyMode;
+	NowDisplayMode = ControlInfoDispalyMode;
 }
 
 bool FurnaceDisplay::Tick()
@@ -62,11 +61,11 @@ bool FurnaceDisplay::Tick()
 		switch ( WorkStatus )
 		{
 			case StatusFinish:
-				DisplayMode = ENDDisplayMode;
+				NowDisplayMode = ENDDisplayMode;
 				DisplayChangeTimer.Stop();
 				break;
 			case StatusError:
-				DisplayMode = ErrorDisplayMode;
+				NowDisplayMode = ErrorDisplayMode;
 				break;
 			default:
 				break;
@@ -89,36 +88,40 @@ void FurnaceDisplay::Stop()
 
 void FurnaceDisplay::PrevDisplay()
 {
-	if ( (DisplayMode <= ControlInfoDispalyMode) && (DisplayMode != SetupDisplayMode) )
+	switch ( NowDisplayMode )
 	{
-		DisplayChangeTimer.Start();
-		if ( DisplayMode == TemperatureDisplayMode )
-		{
-			DisplayMode = ControlInfoDispalyMode;
-		}
-		else
-		{
-			DisplayMode--;
-		}
-		Update();
+		case TemperatureDisplayMode:
+			NowDisplayMode = ControlInfoDispalyMode;
+			break;
+		case TimeDisplayMode:
+			NowDisplayMode = TemperatureDisplayMode;
+			break;
+		case ControlInfoDispalyMode:
+			NowDisplayMode = TimeDisplayMode;
+			break;
+		default:
+			break;
 	}
+	Update();
 }
 
 void FurnaceDisplay::NextDisplay()
 {
-	if ( (DisplayMode <= ControlInfoDispalyMode) && (DisplayMode != SetupDisplayMode) )
+	switch ( NowDisplayMode )
 	{
-		DisplayChangeTimer.Start();
-		if ( DisplayMode == ControlInfoDispalyMode )
-		{
-			DisplayMode = TemperatureDisplayMode;
-		}
-		else
-		{
-			DisplayMode++;
-		}
-		Update();
+		case ControlInfoDispalyMode:
+			NowDisplayMode = TemperatureDisplayMode;
+			break;
+		case TimeDisplayMode:
+			NowDisplayMode = ControlInfoDispalyMode;
+			break;
+		case TemperatureDisplayMode:
+			NowDisplayMode = TimeDisplayMode;
+			break;
+		default:
+			break;
 	}
+	Update();
 }
 
 void FurnaceDisplay::SetDisplayChanging()
@@ -141,7 +144,7 @@ void FurnaceDisplay::SetDisplayChanging(bool flag)
 
 void FurnaceDisplay::Update()
 {
-	switch ( DisplayMode )
+	switch ( NowDisplayMode )
 	{
 		case SetupDisplayMode:
 			DisplaySetupMode();
@@ -168,97 +171,97 @@ void FurnaceDisplay::Update()
 
 void FurnaceDisplay::DisplaySetupMode()
 {
-	LCD->clear();
-	LCD->setCursor(0, 0);
-	LCD->print("HELLO 1234567890");
-	LCD->setCursor(0, 1);
-	LCD->print("SETUP START");
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("HELLO 1234567890");
+	LCD.setCursor(0, 1);
+	LCD.print("SETUP START");
 }
 
 void FurnaceDisplay::DisplayTemperature()
 {
-	LCD->clear();
-	LCD->setCursor(0, 0);
-	LCD->print("NOW : ");
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("NOW : ");
 	PrintTemperature(AverageTemperature);
-	LCD->write(0xDF);
-	LCD->print("C");
-	LCD->setCursor(0, 1);
-	LCD->print("TO  : ");
+	LCD.write(0xDF);
+	LCD.print("C");
+	LCD.setCursor(0, 1);
+	LCD.print("TO  : ");
 	PrintTemperature(GoalTemperature);
-	LCD->write(0xDF);
-	LCD->print("C");
+	LCD.write(0xDF);
+	LCD.print("C");
 }
 
 void FurnaceDisplay::DisplayTime()
 {
-	LCD->clear();
-	LCD->setCursor(0, 0);
-	LCD->print("ELAPSE : ");
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("ELAPSE : ");
 	PrintTime(millis() - StartTime);
 
-	LCD->setCursor(0, 1);
-	LCD->print("REMAIN : ");
+	LCD.setCursor(0, 1);
+	LCD.print("REMAIN : ");
 	PrintTime(FinishTimer - millis());
 }
 
 void FurnaceDisplay::DisplayControlInfo()
 {
-	LCD->clear();
-	LCD->setCursor(0, 0);
-	LCD->print("STATUS : ");
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("STATUS : ");
 	switch ( WorkStatus )
 	{
 		case StatusToFirstKeepTemp:
-			LCD->print("To 80");
-			LCD->write(0xDF);
-			LCD->print("C");
+			LCD.print("To 80");
+			LCD.write(0xDF);
+			LCD.print("C");
 			break;
 		case StatusKeepFirstKeepTemp:
-			LCD->print("Keep 80");
+			LCD.print("Keep 80");
 			break;
 		case StatusToSecondKeepTemp:
-			LCD->print("To130");
-			LCD->write(0xDF);
-			LCD->print("C");
+			LCD.print("To130");
+			LCD.write(0xDF);
+			LCD.print("C");
 			break;
 		case StatusKeepSecondkeepTemp:
-			LCD->print("Keep130");
+			LCD.print("Keep130");
 			break;
 		case StatusFinish:
-			LCD->print("COOLING");
+			LCD.print("COOLING");
 			break;
 		default:
 			break;
 	}
 
-	LCD->setCursor(0, 1);
-	LCD->print("OUTPUT : ");
-	LCD->print(PIDOutput);
+	LCD.setCursor(0, 1);
+	LCD.print("OUTPUT : ");
+	LCD.print(PIDOutput);
 }
 
 void FurnaceDisplay::DisplayENDMode()
 {
-	LCD->clear();
-	LCD->setCursor(0, 0);
-	LCD->print("COOLING  ");
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("COOLING  ");
 	PrintTemperature(AverageTemperature);
-	LCD->write(0xDF);
-	LCD->print("C");
+	LCD.write(0xDF);
+	LCD.print("C");
 
-	LCD->setCursor(0, 1);
-	LCD->print("RESULT : ");
+	LCD.setCursor(0, 1);
+	LCD.print("RESULT : ");
 	PrintTime(FinishTimer - StartTime);
 }
 
 void FurnaceDisplay::DisplayError()
 {
-	LCD->clear();
-	LCD->setCursor(0, 0);
-	LCD->print("ERROR");
-	LCD->setCursor(0, 1);
-	LCD->print("ERRORCODE : ");
-	LCD->print(ErrorStatus);
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("ERROR");
+	LCD.setCursor(0, 1);
+	LCD.print("ERRORCODE : ");
+	LCD.print(ErrorStatus);
 }
 
 void FurnaceDisplay::PrintTemperature(double InputTemperature)
@@ -268,20 +271,20 @@ void FurnaceDisplay::PrintTemperature(double InputTemperature)
 	uint16_t DecPart = (uint16_t)(Var * 10) - IntPart * 10;
 	if ( IntPart >= 100 )
 	{
-		LCD->print(IntPart);
+		LCD.print(IntPart);
 	}
 	else if ( IntPart >= 10 )
 	{
-		LCD->print('0');
-		LCD->print(IntPart);
+		LCD.print('0');
+		LCD.print(IntPart);
 	}
 	else
 	{
-		LCD->print("00");
-		LCD->print(IntPart);
+		LCD.print("00");
+		LCD.print(IntPart);
 	}
-	LCD->print('.');
-	LCD->print(DecPart);
+	LCD.print('.');
+	LCD.print(DecPart);
 }
 
 void FurnaceDisplay::PrintTime(unsigned long InputTime)
@@ -291,26 +294,26 @@ void FurnaceDisplay::PrintTime(unsigned long InputTime)
 	unsigned long M = (Time / 60 - H * 60);
 	unsigned long S = Time - H * 3600 - M * 60;
 
-	LCD->print(H);
-	LCD->print(':');
+	LCD.print(H);
+	LCD.print(':');
 	if ( M >= 10 )
 	{
-		LCD->print(M);
+		LCD.print(M);
 	}
 	else
 	{
-		LCD->print('0');
-		LCD->print(M);
+		LCD.print('0');
+		LCD.print(M);
 	}
-	LCD->print(':');
+	LCD.print(':');
 	if ( S >= 10 )
 	{
-		LCD->print(S);
+		LCD.print(S);
 	}
 	else
 	{
-		LCD->print('0');
-		LCD->print(S);
+		LCD.print('0');
+		LCD.print(S);
 	}
 }
 

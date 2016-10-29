@@ -18,12 +18,15 @@
 //--------------------------------------------------------マクロ--------------------------------------------------------
 
 //画面の表示状態を決める値。名前が変な気がする。
-#define SetupDisplayMode 0
-#define TemperatureDisplayMode 1
-#define TimeDisplayMode 2
-#define ControlInfoDispalyMode 3
-#define ENDDisplayMode 4
-#define ErrorDisplayMode 5
+enum DisplayMode
+{
+	SetupDisplayMode,
+	TemperatureDisplayMode,
+	TimeDisplayMode,
+	ControlInfoDispalyMode,
+	ENDDisplayMode,
+	ErrorDisplayMode
+};
 
 #define DISPLAYCHANGETIME 3000 //画面の自動遷移の間隔
 
@@ -49,7 +52,7 @@ Furnaceを拡張し、LCDに情報を表示できるに。
 class FurnaceDisplay : public Furnace
 {
 public:
-	FurnaceDisplay(uint8_t RelayControlPin, IThermometer* thermometer, LiquidCrystal* lcd);
+	FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd);
 	void Setup();
 	void Start();
 	bool Tick(); //FurnaceがTrueを返した時に画面表示の更新を行いTrueを返す。
@@ -59,14 +62,14 @@ public:
 	void NextDisplay(); //前の画面に遷移。Temperature,Time,ControlInfoをぐるぐるする。
 	void SetDisplayChanging(); //自動画面遷移のフラグを反転させる。
 	void SetDisplayChanging(bool flag); //自動で画面遷移するかどうか。
-	void SetDisplayMode(uint8_t displayMode); //任意の画面を表示する。
+	void SetDisplayMode(DisplayMode displayMode); //任意の画面を表示する。
 
 	void DataOutputBySerial();
 
 private:
-	uint8_t DisplayMode; //表示している画面
+	DisplayMode NowDisplayMode; //表示している画面
 	SimpleTimerThread DisplayChangeTimer; //画面の自動遷移のためのタイマー
-	LiquidCrystal* LCD; //表示用のLCD。別の場所でインスタンスの生成が出来たほうが幸せなので。
+	LiquidCrystal &LCD; //表示用のLCD。別の場所でインスタンスの生成が出来たほうが幸せなので。
 
 	void PrintTemperature(double InputTemperature); //画面に温度を表示する
 	void PrintTime(unsigned long InputTime); //画面に時間を表示する。99:59:59を超えると位置ずれする。

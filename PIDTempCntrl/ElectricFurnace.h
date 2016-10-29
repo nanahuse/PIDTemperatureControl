@@ -16,19 +16,25 @@
 //時間系は全てミリ秒
 
 //Furnace(炉)の稼働状態を表す。Furnace::ShowStatusで返る値。
-#define StatusStop 0
-#define StatusManual 1 //マニュアルで温度調整出来るモード
-#define StatusToFirstKeepTemp 2
-#define StatusKeepFirstKeepTemp 3
-#define StatusToSecondKeepTemp 4
-#define StatusKeepSecondkeepTemp 5
-#define StatusFinish 6
-#define StatusError 10 //回復不可能なエラー
+enum FurnaceStatus
+{
+	StatusStop = 0,
+	StatusManual, //マニュアルで温度調整出来るモード
+	StatusToFirstKeepTemp,
+	StatusKeepFirstKeepTemp,
+	StatusToSecondKeepTemp,
+	StatusKeepSecondkeepTemp,
+	StatusFinish,
+	StatusError //回復不可能なエラー
+};
 
 //Furnace(炉)のエラー状態を表す。Furnace::CheckErrorで返る値。
-#define ErrorNone 0
-#define ErrorUnknown 1 //ならないと良いな。
-#define ErrorNotEnoughTemperatureUpward 2 //温度上昇が足りない
+enum FurnaceError
+{
+	ErrorNone = 0, //エラー無し　false
+	ErrorUnknown, //ならないと良いな。
+	ErrorNotEnoughTemperatureUpward //温度上昇が足りない
+};
 
 //時間系
 #define CONTROLINTERVAL 1000 //Furnaceの制御周期。RelayThreadでも使用している。
@@ -100,15 +106,15 @@ public:
 class Furnace :public  ThreadBase
 {
 public:
-	Furnace(uint8_t RelayControlPin, IThermometer* thermometer);
+	Furnace(uint8_t RelayControlPin, IThermometer &thermometer);
 	void Start();
-	void Start(uint8_t StartMode);
+	void Start(FurnaceStatus StartMode);
 	bool Tick(); //温度測定及びPID計算を行ったタイミングでTrueを返す。
 	void Stop();
 	void SetIntervalTimer(unsigned long Time);
 
-	uint8_t ShowStatus(); //制御状態を表示。
-	uint8_t CheckError(); //エラーが起きたかを表示する。一度実行するとエラー無しが返るようになる。
+	FurnaceStatus ShowStatus(); //制御状態を表示。
+	FurnaceError CheckError(); //エラーが起きたかを表示する。一度実行するとエラー無しが返るようになる。
 
 	void SetGoalTemperature(double goal); //目標温度の設定。マニュアルモードのみで有効。
 
@@ -121,11 +127,11 @@ protected:
 	double GoalTemperature, PIDOutput;
 
 	//Temperature
-	IThermometer* Thermometer; //炉の温度を取得するための温度計
+	IThermometer &Thermometer; //炉の温度を取得するための温度計
 	unsigned long KeepTimer, StartTime, FinishTimer; //温度維持のため、焼きの開始時間、焼きの終了予想時間を示すタイマー
 	double OldTemperature, AverageTemperature, NowTemperature; //ひとつ前の、平均化した、現在の温度
-	uint8_t WorkStatus; //炉の制御状態。
-	uint8_t ErrorStatus; //エラーが起きているときのエラーの情報。
+	FurnaceStatus WorkStatus; //炉の制御状態。
+    FurnaceError ErrorStatus; //エラーが起きているときのエラーの情報。
 
 
 private:

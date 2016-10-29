@@ -87,7 +87,7 @@ void RelayThread::UpdateIntervalTimer()
 	}
 }
 
-Furnace::Furnace(uint8_t RelayControlPin, IThermometer* thermometer) : PIDController(&AverageTemperature, &PIDOutput, &GoalTemperature, KP, KI, KD), RelayController(RelayControlPin)
+Furnace::Furnace(uint8_t RelayControlPin, IThermometer &thermometer) : PIDController(AverageTemperature, PIDOutput, GoalTemperature, KP, KI, KD), RelayController(RelayControlPin),Thermometer(thermometer)
 {
 	OldTemperature = 0.0;
 	AverageTemperature = 0.0;
@@ -113,7 +113,7 @@ void Furnace::Start()
 		double TmpTemperature = 0.0;
 		do
 		{
-			TmpTemperature = Thermometer->Read();
+			TmpTemperature = Thermometer.Read();
 		} while (isnan(TmpTemperature));
 		AverageTemperature += TmpTemperature;
 		delay(200);
@@ -134,7 +134,7 @@ void Furnace::Start()
 
 }
 
-void Furnace::Start(uint8_t StartMode)
+void Furnace::Start(FurnaceStatus StartMode)
 {
 	Start();
 	if (StartMode == StatusKeepFirstKeepTemp)
@@ -190,7 +190,7 @@ void Furnace::SetIntervalTimer(unsigned long Time)
 void Furnace::GetTemperature()
 {
 	//温度の測定
-	NowTemperature = Thermometer->Read();
+	NowTemperature = Thermometer.Read();
 
 	//エラーが出たときは古い値を使う。
 	if (isnan(NowTemperature))
@@ -272,14 +272,14 @@ void Furnace::UpdateGoalTemperature()
 }
 
 
-uint8_t Furnace::ShowStatus()
+FurnaceStatus Furnace::ShowStatus()
 {
 	return WorkStatus;
 }
 
-uint8_t Furnace::CheckError()
+FurnaceError Furnace::CheckError()
 {
-	uint8_t TempErrorStatus = ErrorStatus;
+	FurnaceError TempErrorStatus = ErrorStatus;
 	ErrorStatus = ErrorNone;
 	return TempErrorStatus;
 }

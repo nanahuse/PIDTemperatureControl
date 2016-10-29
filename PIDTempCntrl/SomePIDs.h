@@ -5,9 +5,9 @@
 #define _SOMEPIDS_h
 
 #if defined(ARDUINO) && ARDUINO >= 100
-	#include "arduino.h"
+#include "arduino.h"
 #else
-	#include "WProgram.h"
+#include "WProgram.h"
 #endif
 
 /*
@@ -17,7 +17,7 @@ Setpointは目標値
 class IPID
 {
 public:
-	IPID(double* Input, double* Output, double* Setpoint, double kp, double ki, double kd);
+	IPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd);
 
 	virtual void Compute() = 0;
 
@@ -27,11 +27,12 @@ public:
 	void SetSampleTime(int NewSampleTime);
 
 protected:
-	virtual void Initialize()=0;
+	virtual void Initialize() = 0;
 
 	double kp, ki, kd;
 
-	double *MyInput, *MyOutput, *MySetpoint;
+	const double &MyInput, &MySetpoint;
+	double  &MyOutput;
 
 	unsigned long SampleTime;
 	double OutputMin, OutputMax;
@@ -42,7 +43,7 @@ protected:
 class PositionPID :public IPID
 {
 public:
-	PositionPID(double* Input, double* Output, double* Setpoint, double kp, double ki, double kd, double saturator);
+	PositionPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd, double saturator);
 
 	void Compute();
 	void SetSaturator(double saturator);
@@ -58,7 +59,7 @@ private:
 class VelocityPID :public IPID
 {
 public:
-	VelocityPID(double* Input, double* Output, double* Setpoint, double kp, double ki, double kd);
+	VelocityPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd);
 
 	void Compute();
 
@@ -72,7 +73,7 @@ private:
 class VelocityPID_IPd : public IPID
 {
 public:
-	VelocityPID_IPd(double* Input, double* Output, double* Setpoint, double kp, double ki, double kd);
+	VelocityPID_IPd(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd);
 
 	void Compute();
 
@@ -88,7 +89,7 @@ private:
 class VelocityPID_Ipd : public IPID
 {
 public:
-	VelocityPID_Ipd(double* Input, double* Output, double* Setpoint, double kp, double ki, double kd);
+	VelocityPID_Ipd(const double& Input, double&Output, const double& Setpoint, double kp, double ki, double kd);
 
 	void Compute();
 
