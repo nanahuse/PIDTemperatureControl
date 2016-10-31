@@ -4,7 +4,7 @@
 
 #include "ToolThred.h"
 
-BuzzerThread::BuzzerThread(uint8_t controlPin)
+BuzzerThread::BuzzerThread(uint8_t controlPin): SimpleTimerThread()
 {
 	ControlPin = controlPin;
 	pinMode(ControlPin, OUTPUT);
@@ -14,56 +14,57 @@ BuzzerThread::BuzzerThread(uint8_t controlPin)
 
 void BuzzerThread::SetSound(unsigned long interval, unsigned long soundLength)
 {
-	Interval = interval;
-	Length = soundLength;
+	SimpleTimerThread::SetInterval(interval);
+	LengthTimer.SetInterval(soundLength);
 }
 
 void BuzzerThread::SoundOnce(unsigned long soundLength)
 {
-	SetTimerStop(IntervalTimer);
-	LengthTimer = millis() + soundLength;
-	SetTimerStop(Interval);
-	SetTimerStop(Length);
+	SimpleTimerThread::Stop();
+	LengthTimer.SetInterval(soundLength);
 	digitalWrite(ControlPin, HIGH);
+	LengthTimer.Start();
 }
 
 bool BuzzerThread::Tick()
 {
-	if ( millis() >= IntervalTimer )
+	if ( SimpleTimerThread::Tick() )
 	{
 		digitalWrite(ControlPin, HIGH);
-		UpdateIntervalTImer();
+		LengthTimer.Start();
 		return true;
 	}
-	if ( millis() >= LengthTimer )
+
+	if ( LengthTimer.isRunning() )
 	{
-		digitalWrite(ControlPin, LOW);
-		LengthTimer = IntervalTimer + Length;
+		if ( LengthTimer.Tick() )
+		{
+			digitalWrite(ControlPin, LOW);
+			LengthTimer.Stop();
+		}
 	}
 	return false;
 }
 
 void BuzzerThread::Start()
 {
-	IntervalTimer = millis() + Interval;
-	LengthTimer = IntervalTimer + Length;
+	SimpleTimerThread::Start();
+	digitalWrite(ControlPin, HIGH);
+	LengthTimer.Start();
 }
 
 void BuzzerThread::Stop()
 {
 	digitalWrite(ControlPin, LOW);
-	SetTimerStop(IntervalTimer);
-	SetTimerStop(LengthTimer);
+	SimpleTimerThread::Stop();
+	LengthTimer.Stop();
 }
 
-void BuzzerThread::UpdateIntervalTImer()
+bool BuzzerThread::isRunnning()
 {
-	unsigned long NowTime = millis();
-	while ( IntervalTimer < NowTime )
-	{
-		IntervalTimer += Interval;
-	}
+	return SimpleTimerThread::isRunning();
 }
+
 
 ButtonClass::ButtonClass(uint8_t controlPin, bool canRepeat) : Timer()
 {
