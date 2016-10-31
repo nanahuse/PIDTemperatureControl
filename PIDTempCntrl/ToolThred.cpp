@@ -4,7 +4,7 @@
 
 #include "ToolThred.h"
 
-BuzzerThread::BuzzerThread(uint8_t controlPin): SimpleTimerThread()
+BuzzerThread::BuzzerThread(uint8_t controlPin) : MainTimer(), LengthTimer()
 {
 	ControlPin = controlPin;
 	pinMode(ControlPin, OUTPUT);
@@ -14,13 +14,13 @@ BuzzerThread::BuzzerThread(uint8_t controlPin): SimpleTimerThread()
 
 void BuzzerThread::SetSound(unsigned long interval, unsigned long soundLength)
 {
-	SimpleTimerThread::SetInterval(interval);
+	MainTimer.SetInterval(interval);
 	LengthTimer.SetInterval(soundLength);
 }
 
 void BuzzerThread::SoundOnce(unsigned long soundLength)
 {
-	SimpleTimerThread::Stop();
+	MainTimer.Stop();
 	LengthTimer.SetInterval(soundLength);
 	digitalWrite(ControlPin, HIGH);
 	LengthTimer.Start();
@@ -28,27 +28,24 @@ void BuzzerThread::SoundOnce(unsigned long soundLength)
 
 bool BuzzerThread::Tick()
 {
-	if ( SimpleTimerThread::Tick() )
+	if ( MainTimer.Tick() )
 	{
 		digitalWrite(ControlPin, HIGH);
 		LengthTimer.Start();
 		return true;
 	}
 
-	if ( LengthTimer.isRunning() )
+	if ( LengthTimer.Tick() )
 	{
-		if ( LengthTimer.Tick() )
-		{
 			digitalWrite(ControlPin, LOW);
 			LengthTimer.Stop();
-		}
 	}
 	return false;
 }
 
 void BuzzerThread::Start()
 {
-	SimpleTimerThread::Start();
+	MainTimer.Start();
 	digitalWrite(ControlPin, HIGH);
 	LengthTimer.Start();
 }
@@ -56,13 +53,13 @@ void BuzzerThread::Start()
 void BuzzerThread::Stop()
 {
 	digitalWrite(ControlPin, LOW);
-	SimpleTimerThread::Stop();
+	MainTimer.Stop();
 	LengthTimer.Stop();
 }
 
-bool BuzzerThread::isRunnning()
+bool BuzzerThread::isRunning()
 {
-	return SimpleTimerThread::isRunning();
+	return MainTimer.isRunning();
 }
 
 

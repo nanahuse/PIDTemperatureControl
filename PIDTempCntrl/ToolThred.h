@@ -15,7 +15,7 @@
 擬似並列実行可能なブザー
 一度だけ鳴らす、一定周期ごとに繰り返し鳴らすのどちらかが可能。
 */
-class BuzzerThread :public ThreadBase, private SimpleTimerThread
+class BuzzerThread :public ThreadBase
 {
 public:
 	BuzzerThread(uint8_t controlPin);
@@ -24,9 +24,10 @@ public:
 	bool Tick(); //音が鳴り始める時にTrueを返す。
 	void Start();
 	void Stop();
-	bool isRunnning();
+	bool isRunning();
 
 private:
+	SimpleTimerThread MainTimer;
 	SimpleTimerThread LengthTimer;
 	uint8_t ControlPin;
 };
