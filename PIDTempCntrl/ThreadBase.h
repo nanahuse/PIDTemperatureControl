@@ -40,6 +40,12 @@ Tickをループ内で使用することでIntervalごとにTickがTrueを返し
 class SimpleTimerThread : public ThreadBase
 {
 public:
+	SimpleTimerThread()
+	{
+		SetInterval(0);
+		Stop();
+	}
+
 	virtual bool Tick()
 	{
 		if ( millis()> IntervalTimer )
@@ -59,7 +65,14 @@ public:
 	}
 	virtual void SetInterval(unsigned long interval)
 	{
-		Interval = interval;
+		if ( interval = 0 )
+		{
+			Interval = 1; //無限ループの防止
+		}
+		else
+		{
+			Interval = interval;
+		}
 	}
 
 	virtual	void SetIntervalTimer(unsigned long Time) //IntervalTimerを任意の時間に設定する。これによって処理のタイミングを調整出来る。
