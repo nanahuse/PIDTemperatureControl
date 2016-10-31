@@ -44,7 +44,7 @@ public:
 	{
 		if ( millis()> IntervalTimer )
 		{
-			UpdateIntervalTImer();
+			UpdateIntervalTimer();
 			return true;
 		}
 		return false;
@@ -65,6 +65,7 @@ public:
 	virtual	void SetIntervalTimer(unsigned long Time) //IntervalTimerを任意の時間に設定する。これによって処理のタイミングを調整出来る。
 	{
 		IntervalTimer = Time;
+		UpdateIntervalTimer();
 	}
 
 	virtual bool isRunning() //タイマーを見ることで動いているかを確認する。
@@ -74,7 +75,7 @@ public:
 
 protected:
 	unsigned long IntervalTimer,Interval;
-	void UpdateIntervalTImer() //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ
+	void UpdateIntervalTimer() //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ
 	{
 		unsigned long NowTime = millis();
 		while ( IntervalTimer < NowTime )
