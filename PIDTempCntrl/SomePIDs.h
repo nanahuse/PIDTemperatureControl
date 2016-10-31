@@ -17,13 +17,14 @@ Setpointは目標値
 class IPID
 {
 public:
-	IPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd);
+	IPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd,double saturator);
 
 	virtual void Compute() = 0;
 
 	void SetTunings(double Kp, double Ki, double Kd);
 
 	void SetOutputLimits(double Min, double Max);
+	void SetSaturator(double saturator);
 	void SetSampleTime(int NewSampleTime);
 
 protected:
@@ -36,6 +37,7 @@ protected:
 
 	unsigned long SampleTime;
 	double OutputMin, OutputMax;
+	double Saturator; //発散を防ぐためのサチュレーター
 
 };
 
@@ -46,20 +48,18 @@ public:
 	PositionPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd, double saturator);
 
 	void Compute();
-	void SetSaturator(double saturator);
 
 private:
 	void Initialize();
 
 	double ITerm, LastInput;
-	double Saturator; //積分要素(ITerm)の発散を防ぐためのサチュレーター
 };
 
 //速度型
 class VelocityPID :public IPID
 {
 public:
-	VelocityPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd);
+	VelocityPID(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd, double saturator);
 
 	void Compute();
 
@@ -67,13 +67,14 @@ private:
 	void Initialize();
 
 	double LastError, SecondLastError;
+	double ProvisionalOutput; //内部的な出力の値．
 };
 
 //微分先行型
 class VelocityPID_IPd : public IPID
 {
 public:
-	VelocityPID_IPd(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd);
+	VelocityPID_IPd(const double& Input, double& Output, const double& Setpoint, double kp, double ki, double kd, double saturator);
 
 	void Compute();
 
@@ -82,14 +83,14 @@ private:
 
 	double LastError;
 	double LastInput, SecondLastInput;
-
+	double ProvisionalOutput; //内部的な出力の値．
 };
 
 //比例微分先行型
 class VelocityPID_Ipd : public IPID
 {
 public:
-	VelocityPID_Ipd(const double& Input, double&Output, const double& Setpoint, double kp, double ki, double kd);
+	VelocityPID_Ipd(const double& Input, double&Output, const double& Setpoint, double kp, double ki, double kd, double saturator);
 
 	void Compute();
 
@@ -97,7 +98,7 @@ private:
 	void Initialize();
 
 	double LastInput, SecondLastInput;
-
+	double ProvisionalOutput; //内部的な出力の値．
 };
 
 #endif

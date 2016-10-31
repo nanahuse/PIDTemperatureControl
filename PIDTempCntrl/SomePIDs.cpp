@@ -5,10 +5,11 @@
 #include "SomePIDs.h"
 
 
-IPID::IPID(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd) : MyInput(Input), MyOutput(Output), MySetpoint(Setpoint)
+IPID::IPID(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd, double saturator) : MyInput(Input), MyOutput(Output), MySetpoint(Setpoint)
 {
 	IPID::SetOutputLimits(0, 255);
 	SampleTime = 100.0;
+	Saturator = saturator;
 
 	IPID::SetTunings(kp, ki, kd);
 
@@ -34,6 +35,11 @@ void IPID::SetOutputLimits(double Min, double Max)
 	else if ( MyOutput < OutputMin ) MyOutput = OutputMin;
 }
 
+void IPID::SetSaturator(double saturator)
+{
+	Saturator = saturator;
+}
+
 void IPID::SetSampleTime(int NewSampleTime)
 {
 	if ( NewSampleTime > 0 )
@@ -47,17 +53,15 @@ void IPID::SetSampleTime(int NewSampleTime)
 
 void IPID::Initialize() { }
 
-PositionPID::PositionPID(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd, double saturator) : IPID(Input, Output, Setpoint, kp, ki, kd)
-{
-	SetSaturator(saturator);
-}
+PositionPID::PositionPID(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd, double saturator) : IPID(Input, Output, Setpoint, kp, ki, kd, saturator)
+{ }
 
 void PositionPID::Compute()
 {
 	double error = MySetpoint - MyInput;
 	ITerm += (ki * error);
-	if ( ITerm > Saturator ) ITerm = Saturator; //積分要素の発散を防ぐため、サチュレーターを入れてる。
-	else if ( ITerm < -Saturator ) ITerm = -Saturator;
+	if ( ITerm > OutputMax + Saturator ) ITerm = OutputMax + Saturator; //積分要素の発散を防ぐため、サチュレーターを入れてる。
+	else if ( ITerm < OutputMin - Saturator ) ITerm = -OutputMin - Saturator;
 	double dInput = (MyInput - LastInput);
 
 	double output = kp*error + ITerm - kd *dInput;
@@ -77,22 +81,28 @@ void PositionPID::Initialize()
 	else if ( ITerm < -Saturator ) ITerm = -Saturator;
 }
 
-void PositionPID::SetSaturator(double saturator)
-{
-	Saturator = saturator;
-}
-
-VelocityPID::VelocityPID(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd) : IPID(Input, Output, Setpoint, kp, ki, kd) { }
+VelocityPID::VelocityPID(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd, double saturator) : IPID(Input, Output, Setpoint, kp, ki, kd, saturator) { }
 void VelocityPID::Compute()
 {
-	double output = MyOutput;
 	double error = MySetpoint - MyInput;
 
-	output += kp * (error - LastError) + ki * error - kd * (error - 2.0* LastError + SecondLastError);
+	ProvisionalOutput += kp * (error - LastError) + ki * error - kd * (error - 2.0* LastError + SecondLastError);
 
-	if ( output > OutputMax ) output = OutputMax;
-	if ( output < OutputMin ) output = OutputMin;
-	MyOutput = output;
+	if ( ProvisionalOutput > OutputMax+Saturator ) ProvisionalOutput = OutputMax + Saturator;
+	if ( ProvisionalOutput < OutputMin - Saturator ) ProvisionalOutput = OutputMin - Saturator;
+
+	if ( ProvisionalOutput > OutputMax )
+	{
+		MyOutput = OutputMax;
+	}
+	else if ( ProvisionalOutput < OutputMin )
+	{
+		MyOutput = OutputMin;
+	}
+	else
+	{
+		MyOutput = ProvisionalOutput;
+	}
 
 	SecondLastError = LastError;
 	LastError = error;
@@ -104,18 +114,29 @@ void VelocityPID::Initialize()
 	SecondLastError = 0.0;
 }
 
-VelocityPID_IPd::VelocityPID_IPd(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd) : IPID(Input, Output, Setpoint, kp, ki, kd) { }
+VelocityPID_IPd::VelocityPID_IPd(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd,double saturator) : IPID(Input, Output, Setpoint, kp, ki, kd,saturator) { }
 
 void VelocityPID_IPd::Compute()
 {
-	double output = MyOutput;
 	double error = MySetpoint - MyInput;
 
-	output += kp * (error - LastError) + ki * error - kd * (MyInput - 2.0* LastInput + SecondLastInput);
+	ProvisionalOutput += kp * (error - LastError) + ki * error - kd * (MyInput - 2.0* LastInput + SecondLastInput);
 
-	if ( output > OutputMax ) output = OutputMax;
-	if ( output < OutputMin ) output = OutputMin;
-	MyOutput = output;
+	if ( ProvisionalOutput > OutputMax + Saturator ) ProvisionalOutput = OutputMax + Saturator;
+	if ( ProvisionalOutput < OutputMin - Saturator ) ProvisionalOutput = OutputMin - Saturator;
+
+	if ( ProvisionalOutput > OutputMax )
+	{
+		MyOutput = OutputMax;
+	}
+	else if ( ProvisionalOutput < OutputMin )
+	{
+		MyOutput = OutputMin;
+	}
+	else
+	{
+		MyOutput = ProvisionalOutput;
+	}
 
 	SecondLastInput = LastInput;
 	LastInput = MyInput;
@@ -129,18 +150,29 @@ void VelocityPID_IPd::Initialize()
 	SecondLastInput = 0.0;
 }
 
-VelocityPID_Ipd::VelocityPID_Ipd(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd) : IPID(Input, Output, Setpoint, kp, ki, kd) { }
+VelocityPID_Ipd::VelocityPID_Ipd(const double &Input, double &Output, const double &Setpoint, double kp, double ki, double kd,double saturator) : IPID(Input, Output, Setpoint, kp, ki, kd,saturator) { }
 
 void VelocityPID_Ipd::Compute()
 {
-	double output = MyOutput;
 	double error = MySetpoint - MyInput;
 
-	output += -kp * (MyInput - LastInput) + ki * error - kd * (MyInput - 2.0* LastInput + SecondLastInput);
+	ProvisionalOutput += -kp * (MyInput - LastInput) + ki * error - kd * (MyInput - 2.0* LastInput + SecondLastInput);
 
-	if ( output > OutputMax ) output = OutputMax;
-	if ( output < OutputMin ) output = OutputMin;
-	MyOutput = output;
+	if ( ProvisionalOutput > OutputMax + Saturator ) ProvisionalOutput = OutputMax + Saturator;
+	if ( ProvisionalOutput < OutputMin - Saturator ) ProvisionalOutput = OutputMin - Saturator;
+
+	if ( ProvisionalOutput > OutputMax )
+	{
+		MyOutput = OutputMax;
+	}
+	else if ( ProvisionalOutput < OutputMin )
+	{
+		MyOutput = OutputMin;
+	}
+	else
+	{
+		MyOutput = ProvisionalOutput;
+	}
 
 	SecondLastInput = LastInput;
 	LastInput = MyInput;
