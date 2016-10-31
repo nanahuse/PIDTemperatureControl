@@ -27,7 +27,7 @@ public:
 	virtual bool Tick() = 0; //処理の実行。ループ内で使用する。タイマーによって処理が起きたときにTrueを返すようにする。
 	virtual void Start() = 0; //タイマーの開始処理他。
 	virtual void Stop() = 0; //タイマーの停止処理他。
-	virtual bool isRunning()=0; //タイマーを見ることで動いているかを確認する。
+	virtual bool isRunning() = 0; //タイマーを見ることで動いているかを確認する。
 
 protected:
 };
@@ -36,6 +36,11 @@ protected:
 /*
 ThreadBaseによる簡易タイマー機能。
 Tickをループ内で使用することでIntervalごとにTickがTrueを返し、周期動作させることができる。
+
+UpdateIntervalTimer()において
+・millis()がオーバーフローする前後で怪しい挙動を示すバグ
+・Interval >= ULMAX - IntervalTimerのとき無限ループしてしまうバグ
+が予測されますがmillis()は50日はオーバーフローしないため長期間の利用またはIntervalを上限ぎりぎりにすることがない限りは問題なくまた，対応が難しいためパス．
 */
 class SimpleTimerThread : public ThreadBase
 {
@@ -50,13 +55,13 @@ public:
 	virtual bool isRunning(); //タイマーを見ることで動いているかを確認する。
 
 protected:
-	unsigned long IntervalTimer,Interval;
-	virtual void UpdateIntervalTimer(); //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ
+	unsigned long IntervalTimer, Interval;
+	virtual void UpdateIntervalTimer(); //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ．もし(Interval >= ULMAX - IntervalTimer)な状態で実行されると無限ループするよ！
 };
 
 
 //--------------------------以下SimpleTimerThreadの定義-------------------------------------------
-SimpleTimerThread:: SimpleTimerThread()
+SimpleTimerThread::SimpleTimerThread()
 {
 	SetInterval(0);
 	Stop();
@@ -64,7 +69,7 @@ SimpleTimerThread:: SimpleTimerThread()
 
 bool SimpleTimerThread::Tick()
 {
-	if ( millis()> IntervalTimer )
+	if ( millis() >= IntervalTimer )
 	{
 		UpdateIntervalTimer();
 		return true;
@@ -102,12 +107,12 @@ bool SimpleTimerThread::isRunning() //タイマーを見ることで動いてい
 }
 
 void SimpleTimerThread::UpdateIntervalTimer() //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ
+{
+	unsigned long NowTime = millis();
+	while ( IntervalTimer <= NowTime )
 	{
-		unsigned long NowTime = millis();
-		while ( IntervalTimer < NowTime )
-		{
-			IntervalTimer += Interval;
-		}
+		IntervalTimer += Interval;
 	}
+}
 
 #endif
