@@ -24,7 +24,8 @@ void RelayThread::Stop()
 {
 	delay(RELAYCHANGETIME);
 	digitalWrite(ControlPin, LOW);
-	SetTimerStop(IntervalTimer);
+	delay(RELAYCHANGETIME);
+	SimpleTimerThread::Stop();
 	SetTimerStop(SafetyTimer);
 }
 
@@ -32,21 +33,23 @@ bool RelayThread::Tick()
 {
 	unsigned long Timer = millis();
 
-	if (Timer <= SafetyTimer)  //リレーが壊れないようにスイッチが完了するまで待つ。
+	if ( Timer <= SafetyTimer )  //リレーが壊れないようにスイッチが完了するまで待つ。
 	{
 		return false;
 	}
 
-	if (Timer >= IntervalTimer)
+	if ( Timer >= IntervalTimer )
 	{
-		if (OnTime > RELAYCHANGETIME )
+		if ( OnTime > RELAYCHANGETIME )
 		{
 			digitalWrite(ControlPin, HIGH);
 		}
-		if (OnTime > CONTROLINTERVAL - RELAYCHANGETIME) {
+		if ( OnTime > CONTROLINTERVAL - RELAYCHANGETIME )
+		{
 			SwitchingTimer = IntervalTimer + CONTROLINTERVAL - RELAYCHANGETIME;
 		}
-		else {
+		else
+		{
 			SwitchingTimer = IntervalTimer + OnTime;
 		}
 		UpdateIntervalTimer();
@@ -54,7 +57,7 @@ bool RelayThread::Tick()
 		return true;
 	}
 
-	if (Timer >= SwitchingTimer)
+	if ( Timer >= SwitchingTimer )
 	{
 		digitalWrite(ControlPin, LOW);
 		SwitchingTimer += CONTROLINTERVAL;
@@ -66,7 +69,7 @@ bool RelayThread::Tick()
 void RelayThread::SetIntervalTimer(unsigned long Time)
 {
 	IntervalTimer = Time;
-	while (IntervalTimer <= millis())
+	while ( IntervalTimer <= millis() )
 	{
 		IntervalTimer += CONTROLINTERVAL;
 	}
@@ -81,44 +84,40 @@ void RelayThread::SetOnTime(unsigned long Time)
 void RelayThread::UpdateIntervalTimer()
 {
 	unsigned long NowTime = millis();
-	while (IntervalTimer < NowTime)
+	while ( IntervalTimer < NowTime )
 	{
 		IntervalTimer += CONTROLINTERVAL;
 	}
 }
 
-Furnace::Furnace(uint8_t RelayControlPin, IThermometer &thermometer) : PIDController(AverageTemperature, PIDOutput, GoalTemperature, KP, KI, KD), RelayController(RelayControlPin),Thermometer(thermometer)
+FurnaceThread::FurnaceThread(uint8_t RelayControlPin, IThermometer &thermometer) : PIDController(AverageTemperature, PIDOutput, TemperatureController.ShowGoalTemperatureReference(), KP, KI, KD, CONTROLMAX*0.5), RelayController(RelayControlPin), Thermometer(thermometer)
 {
 	OldTemperature = 0.0;
 	AverageTemperature = 0.0;
 	NowTemperature = 0.0;
 
-	SetTimerStop(IntervalTimer);
-
-	WorkStatus = StatusStop;
-	ErrorStatus = ErrorNone;
-
-	Thermometer = thermometer;
-
+	Stop();
 }
 
-void Furnace::Start()
+void FurnaceThread::Start()
 {
 	AverageTemperature = 0.0;
-	for (uint8_t i = 0; i < 5; i++)
+	for ( uint8_t i = 0; i < 5; i++ )
 	{
 		double TmpTemperature = 0.0;
 		do
 		{
 			TmpTemperature = Thermometer.Read();
-		} while (isnan(TmpTemperature));
+		} while ( isnan(TmpTemperature) );
 		AverageTemperature += TmpTemperature;
 		delay(200);
+		//なんかエラー判別か何か入れないと事故りそう
 	}
 	AverageTemperature *= 0.2;
 
 	OldTemperature = AverageTemperature;
-	GoalTemperature = AverageTemperature;
+
+	TemperatureController.InputTemperature(OldTemperature);
 
 	PIDController.SetOutputLimits(CONTROLMIN, CONTROLMAX);
 	PIDController.SetSampleTime(CONTROLINTERVAL);
@@ -128,68 +127,66 @@ void Furnace::Start()
 	SetIntervalTimer(millis());
 }
 
-void Furnace::Start(FurnaceStatus StartMode)
+bool FurnaceThread::Tick()
 {
-	Start();
-	if (StartMode == StatusKeepFirstKeepTemp)
+	if ( millis() >= IntervalTimer )
 	{
-		WorkStatus = StatusToFirstKeepTemp;
-	}
-	else if (StartMode == StatusKeepSecondkeepTemp)
-	{
-		WorkStatus = StatusToSecondKeepTemp;
-	}
-	else if (StartMode > StatusFinish)
-	{
-		WorkStatus = StatusStop;
-	}
-	else
-	{
-		WorkStatus = StartMode;
-	}
-}
+		GetOrder();
 
-bool Furnace::Tick()
-{
-	if (millis() >= IntervalTimer)
-	{
+		if ( WorkStatus == FurnaceThreadStatus_StopAll ) return false;
+
 		GetTemperature();
-		if (WorkStatus != StatusFinish)
+
+		if ( WorkStatus == FurnaceThreadStatus_StopReray ) return true;
+
+		PIDController.Compute();
+		RelayController.SetOnTime((unsigned long)PIDOutput);
+		if ( PIDOutput == CONTROLMAX )
 		{
-			PIDController.Compute();
-			RelayController.SetOnTime((unsigned long)PIDOutput);
+			WorkStatus = FurnaceThreadStatus_OutputShortage;
 		}
-		UpdateIntervalTImer();
+
+		UpdateIntervalTimer();
 		return true;
 	}
 	RelayController.Tick();
 	return false;
 }
 
-void Furnace::Stop()
+void FurnaceThread::Stop()
 {
 	RelayController.Stop();
-	WorkStatus = StatusStop;
-	SetTimerStop(IntervalTimer);
+	SimpleTimerThread::Stop();
+	WorkStatus = FurnaceThreadStatus_StopAll;
 }
 
-void Furnace::SetIntervalTimer(unsigned long Time)
+void FurnaceThread::SetIntervalTimer(unsigned long Time)
 {
-	StartTime = Time;
 	IntervalTimer = Time + CONTROLINTERVAL;
 	RelayController.SetIntervalTimer(IntervalTimer + CONTROLINTERVAL / 2); //温度計測とPIDの計算が結構重いため、リレーを半周期ずらすことでリレー制御への影響を抑えている。
 }
 
-void Furnace::GetTemperature()
+bool FurnaceThread::isRunning()
 {
-	//温度の測定
-	NowTemperature = Thermometer.Read();
+	return SimpleTimerThread::isRunning();
+}
 
-	//エラーが出たときは古い値を使う。
-	if (isnan(NowTemperature))
+void FurnaceThread::GetTemperature()
+{
+	//ここら辺の処理はIThermometer側にやらせるのが正しいのでは？
+
+	//温度の測定
+	int i = 0;
+	do //失敗したときに備えて五回まではミスを認める
 	{
-		NowTemperature = OldTemperature;
-		ErrorStatus = ErrorNotGetTemperature;
+		NowTemperature = Thermometer.Read();
+		i++;
+	} while ( isnan(NowTemperature) && (i < 5) );
+
+	if ( i = 5 ) //五回温度取得に失敗していたらエラーとみなす
+	{
+		NowTemperature = OldTemperature;	//エラーが出たときは古い値を使う。
+		WorkStatus = FurnaceThreadStatus_NotGetTemperature;
 	}
 	else
 	{
@@ -202,35 +199,51 @@ void Furnace::GetTemperature()
 	TemperatureController.InputTemperature(AverageTemperature);
 }
 
-FurnaceStatus Furnace::ShowStatus()
+void FurnaceThread::GetOrder()
 {
-	return WorkStatus;
-}
-
-FurnaceError Furnace::CheckError()
-{
-	FurnaceError TempErrorStatus = ErrorStatus;
-	ErrorStatus = ErrorNone;
-	return TempErrorStatus;
-}
-
-void Furnace::SetGoalTemperature(double goal)
-{
-	if (WorkStatus == StatusManual)
+	switch ( TemperatureController.ShowOrderForFurnaceThread() )
 	{
-		GoalTemperature = goal;
+		case FurnaceOrder_StopAll:
+			Stop();
+			break;
+		case FurnaceOrder_StopRelay:
+			WorkStatus = FurnaceThreadStatus_StopReray;
+			RelayController.Stop();
+			break;
+		default:
+			break;
 	}
 }
 
-void Furnace::SetTemperatureController(ITemperatureController &temeperatureController)
+FurnaceThreadStatus FurnaceThread::ShowStatus()
+{
+	switch ( WorkStatus )
+	{
+		case FurnaceThreadStatus_OutputShortage:
+			WorkStatus = FurnaceThreadStatus_OK;
+			return FurnaceThreadStatus_OutputShortage;
+			break;
+		case FurnaceThreadStatus_NotGetTemperature:
+			WorkStatus = FurnaceThreadStatus_OK;
+			return FurnaceThreadStatus_NotGetTemperature;
+			break;
+		default:
+			return WorkStatus;
+			break;
+	}
+}
+
+
+
+void FurnaceThread::SetTemperatureController(ITemperatureController &temeperatureController)
 {
 	TemperatureController = temeperatureController;
 }
 
-void Furnace::UpdateIntervalTImer()
+void FurnaceThread::UpdateIntervalTimer()
 {
 	unsigned long NowTime = millis();
-	while (IntervalTimer < NowTime)
+	while ( IntervalTimer < NowTime )
 	{
 		IntervalTimer += CONTROLINTERVAL;
 	}

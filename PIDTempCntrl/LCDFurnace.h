@@ -12,11 +12,9 @@
 #include <max6675.h>
 #include "ElectricFurnace.h"
 
+//cppのほうに温度の設定とか移動
 
-//時間系はミリ秒だよ
-
-//--------------------------------------------------------マクロ--------------------------------------------------------
-
+//--------------------------------------------------------定義とか--------------------------------------------------------
 //画面の表示状態を決める値。名前が変な気がする。
 enum DisplayMode
 {
@@ -29,30 +27,16 @@ enum DisplayMode
 };
 
 //Furnace(炉)の稼働状態を表す。Furnace::ShowStatusで返る値。
-enum FurnaceStatus
+enum FurnaceControllerStatus
 {
-	StatusStop = 0,
-	StatusManual, //マニュアルで温度調整出来るモード
-	StatusToFirstKeepTemp,
-	StatusKeepFirstKeepTemp,
-	StatusToSecondKeepTemp,
-	StatusKeepSecondkeepTemp,
-	StatusFinish,
-	StatusError //回復不可能なエラー
+	FurnaceStatus_Stop = 0,
+	FurnaceStatus_ToFirstKeepTemp,
+	FurnaceStatus_KeepFirstKeepTemp,
+	FurnaceStatus_ToSecondKeepTemp,
+	FurnaceStatus_KeepSecondkeepTemp,
+	FurnaceStatus_Finish,
+	FurnaceStatus_FatalError //回復不可能なエラー
 };
-
-//温度設定
-const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerMillis = 0.00003333333333333333;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
-const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerInterval = IncreaseTemperaturePerMillis*CONTROLINTERVAL;
-const double TemperatuerControllerThreadForPrepreg::MillisPerIncreaseTemperature = 1.0 / IncreaseTemperaturePerMillis;//終了時間の計算のために1周期あたりの計算
-const double TemperatuerControllerThreadForPrepreg::FirstKeepTemperature = 80.0 + TEMPCONTROLLENGTH; //第一保持温度(℃)
-const unsigned long TemperatuerControllerThreadForPrepreg::FirstKeepTime = 1800000; //30分維持
-const double TemperatuerControllerThreadForPrepreg::SecondKeepTemperature = 130.0 + TEMPCONTROLLENGTH; //第二保持温度(℃)
-const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 7200000; //120分維持
-
-
-const unsigned long FurnaceDisplay::DisplayChangeTime = 3000; //画面の自動遷移の間隔
-
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
@@ -105,7 +89,7 @@ private:
 今回はLCDに情報を表示しながら電気炉の制御を行う構成にしたので
 Furnaceを拡張し、LCDに情報を表示できるように。
 */
-class FurnaceDisplay : public Furnace
+class FurnaceDisplay : public FurnaceThread
 {
 public:
 	FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd);
@@ -143,47 +127,5 @@ private:
 	static const unsigned long DisplayChangeTime; //画面の自動遷移の間隔
 };
 
-
-/*
-擬似並列実行可能なブザー
-一度だけ鳴らす、一定周期ごとに繰り返し鳴らすのどちらかが可能。
-*/
-class BuzzerThread :private SimpleTimerThread
-{
-public:
-	BuzzerThread(uint8_t controlPin);
-	void SetSound(unsigned long interval, unsigned long soundLength); //intervalごとにsoundLengthの長さブザーを鳴らす。
-	void SoundOnce(unsigned long soundLength); //実行時からSoundLengthの長さブザーを鳴らす。一度鳴るとタイマーが止まる。
-	bool Tick(); //音が鳴り始める時にTrueを返す。
-	void Start();
-	void Stop();
-
-private:
-	unsigned long LengthTimer;
-	unsigned long Interval, Length;
-	uint8_t ControlPin;
-	void UpdateIntervalTImer();
-};
-
-
-/*
-INPUT_PULLUPを使ったボタンクラス。タクトスイッチの接続に注意。
-CanRepeatをFalseにすると一度だけ
-CanRepeatをTrueにすると押しっぱなしの時はRepeatTimeの間隔でTrueを返す。
-ループしながらボタン入力をするときを想定。
-*/
-class ButtonClass
-{
-public:
-	ButtonClass(uint8_t controlPin, bool canRepeat);
-	void SetRepeatTime(unsigned long RepeatTime);
-	void SetCanRepeat(bool canRepeat);
-	bool isPressed();
-private:
-	SimpleTimerThread Timer;
-	uint8_t ControlPin;
-	bool OldStatus;
-	bool CanRepeat;
-};
 
 #endif

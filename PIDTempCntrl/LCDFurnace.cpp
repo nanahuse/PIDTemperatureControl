@@ -4,6 +4,24 @@
 
 #include "LCDFurnace.h"
 
+
+//--------------------------------------------------------設定とか--------------------------------------------------------
+//時間系はミリ秒だよ
+//温度設定
+const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerMillis = 0.00003333333333333333;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
+const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerInterval = IncreaseTemperaturePerMillis*CONTROLINTERVAL;
+const double TemperatuerControllerThreadForPrepreg::MillisPerIncreaseTemperature = 1.0 / IncreaseTemperaturePerMillis;//終了時間の計算のために1周期あたりの計算
+const double TemperatuerControllerThreadForPrepreg::FirstKeepTemperature = 80.0 + TEMPCONTROLLENGTH; //第一保持温度(℃)
+const unsigned long TemperatuerControllerThreadForPrepreg::FirstKeepTime = 1800000; //30分維持
+const double TemperatuerControllerThreadForPrepreg::SecondKeepTemperature = 130.0 + TEMPCONTROLLENGTH; //第二保持温度(℃)
+const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 7200000; //120分維持
+
+const unsigned long FurnaceDisplay::DisplayChangeTime = 3000; //画面の自動遷移の間隔
+
+
+//--------------------------------------------------------クラスの定義--------------------------------------------------------
+
+
 Thermocouple::Thermocouple(int8_t SCKPin, int8_t MISOPin, int8_t SSPin) : thermocouple(SCKPin, MISOPin, SSPin)
 { }
 
@@ -317,138 +335,7 @@ void FurnaceDisplay::PrintTime(unsigned long InputTime)
 	}
 }
 
-BuzzerThread::BuzzerThread(uint8_t controlPin)
-{
-	ControlPin = controlPin;
-	pinMode(ControlPin, OUTPUT);
-	digitalWrite(ControlPin, LOW);
-	this->Stop();
-}
 
-void BuzzerThread::SetSound(unsigned long interval, unsigned long soundLength)
-{
-	Interval = interval;
-	Length = soundLength;
-}
-
-void BuzzerThread::SoundOnce(unsigned long soundLength)
-{
-	SetTimerStop(IntervalTimer);
-	LengthTimer = millis() + soundLength;
-	SetTimerStop(Interval);
-	SetTimerStop(Length);
-	digitalWrite(ControlPin, HIGH);
-}
-
-bool BuzzerThread::Tick()
-{
-	if ( millis() >= IntervalTimer )
-	{
-		digitalWrite(ControlPin, HIGH);
-		UpdateIntervalTImer();
-		return true;
-	}
-	if ( millis() >= LengthTimer )
-	{
-		digitalWrite(ControlPin, LOW);
-		LengthTimer = IntervalTimer + Length;
-	}
-	return false;
-}
-
-void BuzzerThread::Start()
-{
-	IntervalTimer = millis() + Interval;
-	LengthTimer = IntervalTimer + Length;
-}
-
-void BuzzerThread::Stop()
-{
-	digitalWrite(ControlPin, LOW);
-	SetTimerStop(IntervalTimer);
-	SetTimerStop(LengthTimer);
-}
-
-void BuzzerThread::UpdateIntervalTImer()
-{
-	unsigned long NowTime = millis();
-	while ( IntervalTimer < NowTime )
-	{
-		IntervalTimer += Interval;
-	}
-}
-
-ButtonClass::ButtonClass(uint8_t controlPin, bool canRepeat) : Timer()
-{
-	ControlPin = controlPin;
-	pinMode(ControlPin, INPUT_PULLUP);
-	SetCanRepeat(CanRepeat);
-	SetRepeatTime(100);
-	OldStatus = false;
-}
-
-void ButtonClass::SetRepeatTime(unsigned long RepeatTime)
-{
-	if ( CanRepeat )
-	{
-		Timer.SetInterval(RepeatTime);
-	}
-}
-
-void ButtonClass::SetCanRepeat(bool canRepeat)
-{
-	CanRepeat = canRepeat;
-	if ( !CanRepeat )
-	{
-		Timer.SetInterval(100); //チャタリングの防止用
-		OldStatus = false;
-	}
-}
-
-bool ButtonClass::isPressed()
-{
-	if ( !digitalRead(ControlPin) ) //プルアップ回路なのでdigitalReadがfalseの時に押されている。
-	{
-		if ( Timer.Tick() )
-		{
-			if ( OldStatus )
-			{
-				if ( CanRepeat )
-				{
-					return true;
-				}
-				else
-				{
-					return false;
-					Timer.Stop();
-				}
-			}
-			else
-			{
-				Timer.Start();
-				OldStatus = true;
-				return true;
-			}
-		}
-		else
-		{
-			return false;
-		}
-	}
-	else
-	{
-		if ( OldStatus )
-		{
-			OldStatus = false;
-			if ( !CanRepeat )
-			{
-				Timer.Start();
-			}
-		}
-		return false;
-
-	}
-}
 
 double& TemperatuerControllerThreadForPrepreg::ShowGoalTemperatureReference()
 {

@@ -33,6 +33,9 @@
     <ClInclude Include="ThreadBase.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ToolThred.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ElectricFurnace.cpp">
@@ -42,6 +45,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SomePIDs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ToolThred.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
