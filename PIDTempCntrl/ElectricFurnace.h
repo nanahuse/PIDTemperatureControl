@@ -16,7 +16,6 @@
 //時間系は全てミリ秒
 
 
-
 //FurnaceThread(炉)のエラー状態を表す。Furnace::CheckStatusで返る値。
 enum FurnaceThreadStatus
 {
@@ -36,47 +35,18 @@ enum FurnaceOrder
 	FurnaceOrder_StopRelay //リレーだけ止めて温度計測は続けるとき
 };
 
-//時間系
-#define CONTROLINTERVAL 1000 //Furnaceの制御周期。RelayThreadでも使用している。
-#define RELAYCHANGETIME 20 //リレーのスイッチ時間。FOTEK SSR-40DAのデータシートだと<10msになってる。これ以下の制御は無効になる。
-
-//制御系
-#define TEMPCONTROLLENGTH 1.0 //摂氏。制御の際に許す誤差。
-#define CONTROLMAX 500.0 //PID出力上限。リレーが開きぱなしにならないように周期の半分にしてる
-#define CONTROLMIN 0.0 //PID出力下限
-
-
-//PIDparameter
-#define KP 500.0
-#define KI 5.0
-#define KD 0.0
-
-
-
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
 
 /*
 リレーを操作するクラス
-リレーをIntervalごとにOnTimeの長さだけ開放する。
 */
-class RelayThread : protected SimpleTimerThread
+class IRelayController
 {
 public:
-	RelayThread(uint8_t controlPin);
-	void Start();
-	void Stop();
-	bool Tick(); //リレーがOnになるタイミングでTrueを返す。
-	void SetIntervalTimer(unsigned long Time);
-	void SetOnTime(unsigned long Time);
-
-
-private:
-	uint8_t ControlPin;
-	unsigned long SwitchingTimer, SafetyTimer;
-	unsigned long OnTime;
-	void UpdateIntervalTimer();
-
+	virtual void SetOutput(unsigned long Time) = 0;
+	virtual void Start() = 0;
+	virtual void Stop() = 0;
 };
 
 
@@ -98,9 +68,8 @@ public:
 	virtual double& ShowGoalTemperatureReference() = 0;
 	virtual double ShowGoalTemeperature() = 0;
 	virtual void InputTemperature(double Temperature) = 0;
-//	virtual void ErrorHandling(FurnaceError ErrorNumber) = 0;
 	virtual void ShowFurnaceStatus() = 0;
-	virtual FurnaceOrder ShowOrderForFurnaceThread() =0;
+	virtual FurnaceOrder ShowOrderForFurnaceThread() = 0;
 };
 
 
@@ -108,39 +77,39 @@ public:
 炉の制御クラス。
 リレーのオン時間をPID制御によって調整し、温度を制御する。SISO。
 */
-class FurnaceThread :protected  SimpleTimerThread
+class FurnaceThread :public ThreadBase
 {
 public:
-	FurnaceThread(uint8_t RelayControlPin, IThermometer &thermometer);
+	FurnaceThread(IRelayController &relayController, IThermometer &thermometer, IPID &pidController);
 	void Start();
 	bool Tick(); //温度測定及びPID計算を行ったタイミングでTrueを返す。
 	void Stop();
-	void SetIntervalTimer(unsigned long Time);
 	bool isRunning();
+	void SetIntervalTimer(unsigned long Time);
 
 	FurnaceThreadStatus ShowStatus(); //炉の状態を表示する。一度実行するとエラー無しが返るようになる。
 
 	static void SetTemperatureController(ITemperatureController &temeperatureController);
 
 protected:
-
-	RelayThread RelayController;
+	SimpleTimerThread MainTimer;
+	IRelayController &RelayController;
 
 	//PID
-	VelocityPID_Ipd PIDController; //目標値が変化していく影響を受けないように比例微分先行型のPIDを使っている。
+	IPID &PIDController; //目標値が変化していく影響を受けないように比例微分先行型のPIDを使っている。
 	double PIDOutput;
 
 	//Temperature
 	IThermometer &Thermometer; //炉の温度を取得するための温度計
 	double OldTemperature, AverageTemperature, NowTemperature; //ひとつ前の、平均化した、現在の温度
-    FurnaceThreadStatus WorkStatus; //エラーが起きているときのエラーの情報。
+
+	FurnaceThreadStatus WorkStatus; //炉の状態を表す
 
 	static ITemperatureController &TemperatureController; //温度の変化を制御するコントローラー 全部の並列で走らせても共通されるようにstatic
 
 private:
 	void GetTemperature(); //温度を取得する。エラーが出た時は一つ前に取得できた値を使用する。
 	void GetOrder(); //ホストからの命令を読み込む．
-	void UpdateIntervalTimer();
 };
 
 

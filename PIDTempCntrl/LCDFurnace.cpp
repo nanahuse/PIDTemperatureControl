@@ -7,7 +7,22 @@
 
 //--------------------------------------------------------設定とか--------------------------------------------------------
 //時間系はミリ秒だよ
+
+//PIDparameter
+#define KP 500.0
+#define KI 5.0
+#define KD 0.0
+#define CONTROLMAX 500.0 //PID出力上限。リレーが開きぱなしにならないように周期の半分にしてる
+#define CONTROLMIN 0.0 //PID出力下限
+
+//制御系
+#define TEMPCONTROLLENGTH 1.0 //摂氏。制御の際に許す誤差。
+
+//時間系
+#define CONTROLINTERVAL 1000 //Furnaceの制御周期。RelayThreadでも使用している。
+
 //温度設定
+
 const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerMillis = 0.00003333333333333333;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
 const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerInterval = IncreaseTemperaturePerMillis*CONTROLINTERVAL;
 const double TemperatuerControllerThreadForPrepreg::MillisPerIncreaseTemperature = 1.0 / IncreaseTemperaturePerMillis;//終了時間の計算のために1周期あたりの計算
@@ -18,6 +33,11 @@ const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 7200
 
 const unsigned long FurnaceDisplay::DisplayChangeTime = 3000; //画面の自動遷移の間隔
 
+const unsigned long SolidStateRelayThread::ChangeTime = 20;//リレーのスイッチ時間。FOTEK SSR-40DAのデータシートだと<10msになってる。これ以下の制御は無効になる。
+
+
+
+
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
@@ -27,17 +47,125 @@ Thermocouple::Thermocouple(int8_t SCKPin, int8_t MISOPin, int8_t SSPin) : thermo
 
 double Thermocouple::Read()
 {
+	double ReturnTemperature = thermocouple.readCelsius();
+
+	//温度の測定
+	int i = 1;
+	while ( isnan(ReturnTemperature) && (i < 5) ) //失敗したときに備えて五回まではミスを認める
+	{
+		delay(100); //気持ち
+		ReturnTemperature = thermocouple.readCelsius();
+		i++;
+	} 
+
 	return thermocouple.readCelsius();
 }
 
-FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd) : Furnace(RelayControlPin, thermometer), DisplayChangeTimer(), LCD(lcd)
+SolidStateRelayThread::SolidStateRelayThread(uint8_t controlPin) :MainTimer(), SwitchingTimer(), SafetyTimer()
+{
+	ControlPin = controlPin;
+	pinMode(ControlPin, OUTPUT);
+	digitalWrite(ControlPin, LOW);
+
+	MainTimer.SetInterval(CONTROLINTERVAL);
+	OnTime = 0;
+
+	SafetyTimer.SetInterval(ChangeTime);
+
+	MainTimer.Stop();
+	SafetyTimer.Stop();
+	SwitchingTimer.Stop();
+}
+
+
+void SolidStateRelayThread::Start()
+{
+	MainTimer.Start();
+	SafetyTimer.Stop();
+	SwitchingTimer.Stop();
+}
+
+void SolidStateRelayThread::Stop()
+{
+	delay(ChangeTime);
+	digitalWrite(ControlPin, LOW);
+	delay(ChangeTime);
+	MainTimer.Stop();
+	SafetyTimer.Stop();
+	SwitchingTimer.Stop();
+}
+
+bool SolidStateRelayThread::Tick()
+{
+	unsigned long TempTimer = millis();
+
+	if ( SafetyTimer.isRunning() )		//リレーが壊れないようにスイッチが完了するまではピンの切り替えを行わない。
+	{
+		if ( SafetyTimer.Tick() )
+		{
+			SafetyTimer.Stop();
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	if ( MainTimer.Tick() )
+	{
+		if ( OnTime >= ChangeTime ) //リレーの開放時間がリレーの切り替えより長いときのみ開放する．
+		{
+			digitalWrite(ControlPin, HIGH);
+			SafetyTimer.SetIntervalTimer(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
+		}
+		if ( OnTime > CONTROLINTERVAL - ChangeTime )
+		{
+			SwitchingTimer.SetInterval(CONTROLINTERVAL - ChangeTime);
+		}
+		else
+		{
+			SwitchingTimer.SetInterval(OnTime);
+		}
+		SwitchingTimer.SetIntervalTimer(TempTimer); //
+		return true;
+	}
+
+	if ( SwitchingTimer.Tick() )
+	{
+		digitalWrite(ControlPin, LOW);
+		SafetyTimer.SetIntervalTimer(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
+
+		SwitchingTimer.Stop();
+	}
+	return false;
+}
+
+bool SolidStateRelayThread::isRunning()
+{
+	return MainTimer.isRunning();
+}
+
+void SolidStateRelayThread::SetIntervalTimer(unsigned long Time)
+{
+	MainTimer.SetIntervalTimer(Time);
+}
+
+void SolidStateRelayThread::SetOnTime(unsigned long Time)
+{
+	OnTime = Time;
+}
+
+FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd) : FurnaceThread(RelayControlPin, thermometer), DisplayChangeTimer(), LCD(lcd)
 {
 	NowDisplayMode = SetupDisplayMode;
+
+	pidController.SetOutputLimits(CONTROLMIN, CONTROLMAX);
+	pidController.SetSampleTime(CONTROLINTERVAL);
 }
 
 void FurnaceDisplay::Setup()
 {
-	LCD.begin(16, 2);
+	LCD.begin(16, 2); //これここ？
 	DisplaySetupMode();
 	DisplayChangeTimer.SetInterval(DisplayChangeTime);
 }
@@ -67,14 +195,14 @@ void FurnaceDisplay::DataOutputBySerial()
 
 void FurnaceDisplay::Start()
 {
-	Furnace::Start();
+	FurnaceThread::Start();
 	DisplayChangeTimer.Start();
 	NowDisplayMode = ControlInfoDispalyMode;
 }
 
 bool FurnaceDisplay::Tick()
 {
-	if ( Furnace::Tick() )
+	if ( FurnaceThread::Tick() )
 	{
 		switch ( WorkStatus )
 		{

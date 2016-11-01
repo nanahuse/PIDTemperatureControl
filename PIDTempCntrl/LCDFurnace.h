@@ -51,7 +51,7 @@ private:
 	MAX6675 thermocouple;
 };
 
-class TemperatuerControllerThreadForPrepreg : ITemperatureController, SimpleTimerThread
+class TemperatuerControllerThreadForPrepreg : public ITemperatureController, public ThreadBase
 {
 public:
 	TemperatuerControllerThreadForPrepreg();
@@ -86,6 +86,32 @@ private:
 };
 
 /*
+リレーを操作するクラス
+リレーをIntervalごとにOnTimeの長さだけ開放する。
+*/
+
+class SolidStateRelayThread : public ThreadBase,public IRelayController
+{
+public:
+	SolidStateRelayThread(uint8_t controlPin);
+	void Start();
+	void Stop();
+	bool Tick(); //リレーがOnになるタイミングでTrueを返す。
+	bool isRunning();
+	void SetIntervalTimer(unsigned long Time);
+	void SetOnTime(unsigned long Time);
+
+private:
+	uint8_t ControlPin;
+	SimpleTimerThread MainTimer;
+	SimpleTimerThread SwitchingTimer, SafetyTimer;
+	unsigned long OnTime;
+
+	static const unsigned long ChangeTime; //リレーの切り替え時間
+};
+
+
+/*
 今回はLCDに情報を表示しながら電気炉の制御を行う構成にしたので
 Furnaceを拡張し、LCDに情報を表示できるように。
 */
@@ -110,6 +136,7 @@ private:
 	DisplayMode NowDisplayMode; //表示している画面
 	SimpleTimerThread DisplayChangeTimer; //画面の自動遷移のためのタイマー
 	LiquidCrystal &LCD; //表示用のLCD。別の場所でインスタンスの生成が出来たほうが幸せなので。
+	//	VelocityPID_Ipd pidController(AverageTemperature, PIDOutput, TemperatureController.ShowGoalTemperatureReference(), KP, KI, KD, CONTROLMAX*0.5)
 
 	void PrintTemperature(double InputTemperature); //画面に温度を表示する
 	void PrintTime(unsigned long InputTime); //画面に時間を表示する。99:59:59を超えると位置ずれする。
