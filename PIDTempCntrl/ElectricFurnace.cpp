@@ -3,36 +3,19 @@
 // 
 #include "ElectricFurnace.h"
 
-FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &thermometer,IPID &pidController) :MainTimer(), PIDController(pidController), RelayController(relayController), Thermometer(thermometer)
+FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &thermometer,double Kp,double Ki,double Kd,double interval) :MainTimer(), RelayController(relayController), Thermometer(thermometer), PIDController(NowTemperature,PIDOutput,GoalTemperature,Kp,Ki,Kd,500.0)
 {
-	OldTemperature = 0.0;
-	AverageTemperature = 0.0;
 	NowTemperature = 0.0;
-
-	MainTimer.SetInterval(CONTROLINTERVAL);
-
+	MainTimer.SetInterval(interval);
+	PIDController.SetOutputLimits(0.0, RelayOutputMax);
+	PIDController.SetSampleTime(interval);
 	this->Stop();
 }
 
 void FurnaceThread::Start()
 {
-	AverageTemperature = 0.0;
-	for ( uint8_t i = 0; i < 5; i++ )
-	{
-		double TmpTemperature = 0.0;
-		do
-		{
-			TmpTemperature = Thermometer.Read();
-		} while ( isnan(TmpTemperature) );
-		AverageTemperature += TmpTemperature;
-		delay(200);
-		//なんかエラー判別か何か入れないと事故りそう
-	}
-	AverageTemperature *= 0.2;
-
-	OldTemperature = AverageTemperature;
-
-	TemperatureController.InputTemperature(OldTemperature);
+	NowTemperature = Thermometer.Read();
+	TemperatureController.InputTemperature(NowTemperature);
 
 	RelayController.Start();
 
@@ -52,8 +35,8 @@ bool FurnaceThread::Tick()
 		if ( WorkStatus == FurnaceThreadStatus_StopReray ) return true;
 
 		PIDController.Compute();
-		RelayController.SetOutput((unsigned long)PIDOutput);
-		if ( PIDOutput == CONTROLMAX )
+		RelayController.SetOutput(PIDOutput);
+		if ( PIDOutput == RelayOutputMax )
 		{
 			WorkStatus = FurnaceThreadStatus_OutputShortage;
 		}
@@ -82,22 +65,18 @@ bool FurnaceThread::isRunning()
 
 void FurnaceThread::GetTemperature()
 {
-	NowTemperature = Thermometer.Read();
+	double TempTemperature = Thermometer.Read();
 
-	if ( isnan(NowTemperature) )
+	if ( isnan(TempTemperature) )
 	{
-		NowTemperature = OldTemperature;	//エラーが出たときは古い値を使う。
 		WorkStatus = FurnaceThreadStatus_NotGetTemperature;
 	}
 	else
 	{
-		OldTemperature = NowTemperature;
+		NowTemperature = TempTemperature;
 	}
 
-	//PIDに突っ込む温度。均すために平均っぽくしてる。
-	AverageTemperature = (AverageTemperature + NowTemperature) * 0.5;
-
-	TemperatureController.InputTemperature(AverageTemperature);
+	TemperatureController.InputTemperature(TempTemperature);
 }
 
 void FurnaceThread::GetOrder()
@@ -112,6 +91,7 @@ void FurnaceThread::GetOrder()
 			RelayController.Stop();
 			break;
 		default:
+			GoalTemperature = TemperatureController.ShowGoalTemeperature();
 			break;
 	}
 }

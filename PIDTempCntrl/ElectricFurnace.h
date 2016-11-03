@@ -12,7 +12,7 @@
 #include "SomePIDs.h"
 #include "ThreadBase.h"
 
-//--------------------------------------------------------マクロ--------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------
 //時間系は全てミリ秒
 
 
@@ -35,6 +35,8 @@ enum FurnaceOrder
 	FurnaceOrder_StopRelay //リレーだけ止めて温度計測は続けるとき
 };
 
+const double RelayOutputMax = 1000.0;
+
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
 
@@ -44,7 +46,7 @@ enum FurnaceOrder
 class IRelayController
 {
 public:
-	virtual void SetOutput(unsigned long Time) = 0;
+	virtual void SetOutput(double Output) = 0; //0.0-1000.0の間
 	virtual void Start() = 0;
 	virtual void Stop() = 0;
 };
@@ -65,10 +67,8 @@ public:
 class ITemperatureController //なんか名前変かも　ControllerとかHostとかのほうがよさげ
 {
 public:
-	virtual double& ShowGoalTemperatureReference() = 0;
 	virtual double ShowGoalTemeperature() = 0;
 	virtual void InputTemperature(double Temperature) = 0;
-	virtual void ShowFurnaceStatus() = 0;
 	virtual FurnaceOrder ShowOrderForFurnaceThread() = 0;
 };
 
@@ -80,7 +80,7 @@ public:
 class FurnaceThread :public ThreadBase
 {
 public:
-	FurnaceThread(IRelayController &relayController, IThermometer &thermometer, IPID &pidController);
+	FurnaceThread(IRelayController &relayController, IThermometer &thermometer,  double Kp, double Ki,double Kd, double Interval);
 	void Start();
 	bool Tick(); //温度測定及びPID計算を行ったタイミングでTrueを返す。
 	void Stop();
@@ -96,12 +96,13 @@ protected:
 	IRelayController &RelayController;
 
 	//PID
-	IPID &PIDController; //目標値が変化していく影響を受けないように比例微分先行型のPIDを使っている。
+	VelocityPID_Ipd PIDController; //目標値の変動による影響を受けないように比例微分先行型のPIDを使う
 	double PIDOutput;
 
 	//Temperature
 	IThermometer &Thermometer; //炉の温度を取得するための温度計
-	double OldTemperature, AverageTemperature, NowTemperature; //ひとつ前の、平均化した、現在の温度
+	double NowTemperature; //現在の温度
+	double GoalTemperature; //目標温度
 
 	FurnaceThreadStatus WorkStatus; //炉の状態を表す
 
