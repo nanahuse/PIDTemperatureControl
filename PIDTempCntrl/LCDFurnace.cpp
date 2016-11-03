@@ -9,33 +9,32 @@
 //時間系はミリ秒だよ
 
 //PIDparameter
-#define KP 500.0
-#define KI 5.0
-#define KD 0.0
-#define CONTROLMAX 500.0 //PID出力上限。リレーが開きぱなしにならないように周期の半分にしてる
-#define CONTROLMIN 0.0 //PID出力下限
-
-//制御系
-#define TEMPCONTROLLENGTH 1.0 //摂氏。制御の際に許す誤差。
+const double FurnaceDisplay::Kp = 500.0;
+const double FurnaceDisplay::Ki = 5.0;
+const double FurnaceDisplay::Kd = 0.0;
 
 //時間系
-#define CONTROLINTERVAL 1000 //Furnaceの制御周期。RelayThreadでも使用している。
+const unsigned long ControlInterval = 1000; //Furnaceの制御周期。RelayThreadでも使用している。
+
+
+//制御系
+const double TemperatuerControllerThreadForPrepreg::AllowableTemperatureError = 1.0; //摂氏。制御の際に許す誤差。
 
 //温度設定
-
-const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerMillis = 0.00003333333333333333;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
-const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerInterval = IncreaseTemperaturePerMillis*CONTROLINTERVAL;
+const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerMillis = 2.0/60.0/1000.0;  //1msあたりの温度上昇量 一分当たり2℃上昇
+const double TemperatuerControllerThreadForPrepreg::IncreaseTemperaturePerInterval = IncreaseTemperaturePerMillis*ControlInterval;
 const double TemperatuerControllerThreadForPrepreg::MillisPerIncreaseTemperature = 1.0 / IncreaseTemperaturePerMillis;//終了時間の計算のために1周期あたりの計算
-const double TemperatuerControllerThreadForPrepreg::FirstKeepTemperature = 80.0 + TEMPCONTROLLENGTH; //第一保持温度(℃)
-const unsigned long TemperatuerControllerThreadForPrepreg::FirstKeepTime = 1800000; //30分維持
-const double TemperatuerControllerThreadForPrepreg::SecondKeepTemperature = 130.0 + TEMPCONTROLLENGTH; //第二保持温度(℃)
-const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 7200000; //120分維持
+const double TemperatuerControllerThreadForPrepreg::FirstKeepTemperature = 80.0 + AllowableTemperatureError; //第一保持温度(℃)
+const unsigned long TemperatuerControllerThreadForPrepreg::FirstKeepTime = 30*60*1000; //30分維持
+const double TemperatuerControllerThreadForPrepreg::SecondKeepTemperature = 130.0 + AllowableTemperatureError; //第二保持温度(℃)
+const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 120*60*100; //120分維持
 
 const unsigned long FurnaceDisplay::DisplayChangeTime = 3000; //画面の自動遷移の間隔
 
 const unsigned long SolidStateRelayThread::ChangeTime = 20;//リレーのスイッチ時間。FOTEK SSR-40DAのデータシートだと<10msになってる。これ以下の制御は無効になる。
-
-
+const unsigned long SolidStateRelayThread::Interval = ControlInterval;
+const double SolidStateRelayThread::OutputLimit = Interval*0.5;
+const double SolidStateRelayThread::OutputLimitPerRelayOutputMax = OutputLimit / RelayOutputMax;
 
 
 
@@ -67,7 +66,7 @@ SolidStateRelayThread::SolidStateRelayThread(uint8_t controlPin) :MainTimer(), S
 	pinMode(ControlPin, OUTPUT);
 	digitalWrite(ControlPin, LOW);
 
-	MainTimer.SetInterval(CONTROLINTERVAL);
+	MainTimer.SetInterval(Interval);
 	OnTime = 0;
 
 	SafetyTimer.SetInterval(ChangeTime);
@@ -118,9 +117,9 @@ bool SolidStateRelayThread::Tick()
 			digitalWrite(ControlPin, HIGH);
 			SafetyTimer.SetIntervalTimer(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
 		}
-		if ( OnTime > CONTROLINTERVAL - ChangeTime )
+		if ( OnTime > Interval - ChangeTime )
 		{
-			SwitchingTimer.SetInterval(CONTROLINTERVAL - ChangeTime);
+			SwitchingTimer.SetInterval(Interval - ChangeTime);
 		}
 		else
 		{
@@ -150,17 +149,14 @@ void SolidStateRelayThread::SetIntervalTimer(unsigned long Time)
 	MainTimer.SetIntervalTimer(Time);
 }
 
-void SolidStateRelayThread::SetOnTime(unsigned long Time)
+void SolidStateRelayThread::SetOutput(double Output)
 {
-	OnTime = Time;
+	OnTime = (unsigned long)(Output*OutputLimitPerRelayOutputMax);
 }
 
 FurnaceDisplay::FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd) : FurnaceThread(RelayControlPin, thermometer), DisplayChangeTimer(), LCD(lcd)
 {
 	NowDisplayMode = SetupDisplayMode;
-
-	pidController.SetOutputLimits(CONTROLMIN, CONTROLMAX);
-	pidController.SetSampleTime(CONTROLINTERVAL);
 }
 
 void FurnaceDisplay::Setup()
@@ -180,8 +176,6 @@ void FurnaceDisplay::DataOutputBySerial()
 	Serial.print(millis() / 1000);
 	Serial.print("\t");
 	Serial.print(NowTemperature);
-	Serial.print("\t");
-	Serial.print(AverageTemperature);
 	Serial.print("\t");
 	Serial.print(GoalTemperature);
 	Serial.print("\t");
@@ -228,7 +222,7 @@ bool FurnaceDisplay::Tick()
 
 void FurnaceDisplay::Stop()
 {
-	Furnace::Stop();
+	FurnaceThread::Stop();
 	DisplayChangeTimer.Stop();
 }
 
@@ -329,7 +323,7 @@ void FurnaceDisplay::DisplayTemperature()
 	LCD.clear();
 	LCD.setCursor(0, 0);
 	LCD.print("NOW : ");
-	PrintTemperature(AverageTemperature);
+	PrintTemperature(NowTemperature);
 	LCD.write(0xDF);
 	LCD.print("C");
 	LCD.setCursor(0, 1);
@@ -391,7 +385,7 @@ void FurnaceDisplay::DisplayENDMode()
 	LCD.clear();
 	LCD.setCursor(0, 0);
 	LCD.print("COOLING  ");
-	PrintTemperature(AverageTemperature);
+	PrintTemperature(NowTemperature);
 	LCD.write(0xDF);
 	LCD.print("C");
 
@@ -463,13 +457,6 @@ void FurnaceDisplay::PrintTime(unsigned long InputTime)
 	}
 }
 
-
-
-double& TemperatuerControllerThreadForPrepreg::ShowGoalTemperatureReference()
-{
-	return GoalTemperature;
-}
-
 double TemperatuerControllerThreadForPrepreg::ShowGoalTemperature()
 {
 	return GoalTemperature;
@@ -487,12 +474,10 @@ void TemperatuerControllerThreadForPrepreg::UpdateGoalTemperature()
 {
 	switch ( WorkStatus )
 	{
-		case StatusStop:
+		case FurnaceStatus_Stop:
 			break;
-		case StatusManual:
-			break;
-		case StatusToFirstKeepTemp:
-			if ( FirstKeepTemperature > MinimumTemperature + TEMPCONTROLLENGTH )
+		case FurnaceStatus_ToFirstKeepTemp:
+			if ( FirstKeepTemperature > MinimumTemperature + AllowableTemperatureError )
 			{
 				RisingTemperature();
 			}
@@ -501,19 +486,19 @@ void TemperatuerControllerThreadForPrepreg::UpdateGoalTemperature()
 				CalcFinishTime();
 				KeepTimer = millis();
 				GoalTemperature = FirstKeepTemperature;
-				WorkStatus = StatusKeepFirstKeepTemp;
+				WorkStatus = FurnaceStatus_KeepFirstKeepTemp;
 			}
 			break;
 
-		case StatusKeepFirstKeepTemp:
+		case FurnaceStatus_KeepFirstKeepTemp:
 			if ( millis() - KeepTimer >= FirstKeepTime )
 			{
-				WorkStatus = StatusToSecondKeepTemp;
+				WorkStatus = FurnaceStatus_ToSecondKeepTemp;
 			}
 			break;
 
-		case StatusToSecondKeepTemp:
-			if ( SecondKeepTemperature > MinimumTemperature + TEMPCONTROLLENGTH )
+		case FurnaceStatus_ToSecondKeepTemp:
+			if ( SecondKeepTemperature > MinimumTemperature + AllowableTemperatureError )
 			{
 				RisingTemperature();
 			}
@@ -522,20 +507,20 @@ void TemperatuerControllerThreadForPrepreg::UpdateGoalTemperature()
 				CalcFinishTime();
 				KeepTimer = millis();
 				GoalTemperature = SecondKeepTemperature;
-				WorkStatus = StatusKeepSecondkeepTemp;
+				WorkStatus = FurnaceStatus_KeepSecondkeepTemp;
 			}
 			break;
 
-		case StatusKeepSecondkeepTemp:
+		case FurnaceStatus_KeepSecondkeepTemp:
 			if ( millis() - KeepTimer >= SecondKeepTemperature )
 			{ //焼き終わり。リレーをオフにして冷やしていく。
 				GoalTemperature = 0.0;
-				RelayController.Stop();
-				WorkStatus = StatusFinish;
+				Order = FurnaceOrder_StopRelay;
+				WorkStatus = FurnaceStatus_Finish;
 			}
 			break;
 
-		case StatusFinish:
+		case FurnaceStatus_Finish:
 			//END
 			break;
 
@@ -543,7 +528,7 @@ void TemperatuerControllerThreadForPrepreg::UpdateGoalTemperature()
 			//ERROR ここに来てしまったらどうしようもない。
 			Stop();
 			ErrorStatus = ErrorUnknown;
-			WorkStatus = StatusError;
+			WorkStatus = FurnaceStatus_FatalError;
 			break;
 	}
 }
@@ -552,12 +537,13 @@ void TemperatuerControllerThreadForPrepreg::RisingTemperature()
 { 
 	GoalTemperature += IncreaseTemperaturePerInterval;
 
-	if ( GoalTemperature > MinimumTemperature + TEMPCONTROLLENGTH )
+	if ( GoalTemperature > MinimumTemperature + AllowableTemperatureError )
 	{
-		ErrorStatus = ErrorNotEnoughTemperatureUpward;
-		GoalTemperature = MinimumTemperature + TEMPCONTROLLENGTH;
+		ErrorStatus = FurnaceError_NotEnoughTemperatureUpward;
+		GoalTemperature = MinimumTemperature + AllowableTemperatureError;
 		CalcFinishTime();
 	}
+	MinimumTemperature = GoalTemperature;
 }
 
 void TemperatuerControllerThreadForPrepreg::CalcFinishTime()
@@ -565,17 +551,17 @@ void TemperatuerControllerThreadForPrepreg::CalcFinishTime()
 		unsigned long TempTime = 0;
 		FinishTimer = millis();
 
-		if ( WorkStatus == StatusToFirstKeepTemp )
+		if ( WorkStatus == FurnaceStatus_ToFirstKeepTemp )
 		{
 			TempTime += FirstKeepTime;
 		}
 
-		if ( WorkStatus <= StatusToSecondKeepTemp )
+		if ( WorkStatus <= FurnaceStatus_ToSecondKeepTemp )
 		{
 			TempTime += SecondKeepTime;
 		}
 
-		TempTime += (unsigned long)((SecondKeepTemperature - (float)MinimumTemperature) * MillisPerIncreaseTemperature);
+		TempTime += (unsigned long)((SecondKeepTemperature - (double)MinimumTemperature) * MillisPerIncreaseTemperature);
 
 		if ( TempTime > 359999000 )
 		{

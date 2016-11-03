@@ -38,6 +38,11 @@ enum FurnaceControllerStatus
 	FurnaceStatus_FatalError //回復不可能なエラー
 };
 
+enum FurnaceControllError
+{
+	FurnaceError_NotEnoughTemperatureUpward
+};
+
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
 
@@ -60,16 +65,16 @@ public:
 	void Start();
 	void Stop();
 
-	double& ShowGoalTemperatureReference();
 	double ShowGoalTemperature();
+	FurnaceOrder ShowOrderForFurnaceThread();
 	void InputTemperature(double Temperature);
-	void ErrorHandling(FurnaceError ErrorNumber);
 private:
 	double GoalTemperature;
 	double MinimumTemperature;
 	unsigned long KeepTimer, StartTime, FinishTimer; //温度維持のため、焼きの開始時間、焼きの終了予想時間を示すタイマー
 
 	FurnaceStatus WorkStatus;
+	FurnaceOrder Order;
 
 	void UpdateGoalTemperature(); //目標温度を制御状態に合わせて変化させる。ここをインターフェースを用意して別クラスにすれば汎用性が出そう。
 	void RisingTemperature(); //目標温度を上昇させる。実際の温度と離れると補正がはいる。
@@ -82,6 +87,7 @@ private:
 	static const unsigned long FirstKeepTime; //30分維持
 	static const double SecondKeepTemperature; //第二保持温度(℃)
 	static const unsigned long SecondKeepTime; //120分維持
+	static const double AllowableTemperatureError; //温度制御の許容誤差
 
 };
 
@@ -99,7 +105,7 @@ public:
 	bool Tick(); //リレーがOnになるタイミングでTrueを返す。
 	bool isRunning();
 	void SetIntervalTimer(unsigned long Time);
-	void SetOnTime(unsigned long Time);
+	void SetOutput(double Output);
 
 private:
 	uint8_t ControlPin;
@@ -108,6 +114,9 @@ private:
 	unsigned long OnTime;
 
 	static const unsigned long ChangeTime; //リレーの切り替え時間
+	static const unsigned long Interval;
+	static const double OutputLimit;
+	static const double OutputLimitPerRelayOutputMax;
 };
 
 
@@ -152,6 +161,9 @@ private:
 	void DisplayError();
 
 	static const unsigned long DisplayChangeTime; //画面の自動遷移の間隔
+	static const double Kp; //PIDパラメータ
+	static const double Ki; //PIDパラメータ
+	static const double Kd; //PIDパラメータ
 };
 
 
