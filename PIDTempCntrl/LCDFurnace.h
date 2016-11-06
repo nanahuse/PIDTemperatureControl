@@ -18,29 +18,32 @@
 //画面の表示状態を決める値。名前が変な気がする。
 enum DisplayMode
 {
-	SetupDisplayMode,
-	TemperatureDisplayMode,
-	TimeDisplayMode,
-	ControlInfoDispalyMode,
-	ENDDisplayMode,
-	ErrorDisplayMode
+	DisplayMode_Setup,
+	DisplayMode_Temperature,
+	DisplayMode_Time,
+	DisplayMode_ControlInfo,
+	DisplayMode_END,
+	DisplayMode_Error
 };
 
 //Furnace(炉)の稼働状態を表す。Furnace::ShowStatusで返る値。
 enum FurnaceControllerStatus
 {
-	FurnaceStatus_Stop = 0,
-	FurnaceStatus_ToFirstKeepTemp,
-	FurnaceStatus_KeepFirstKeepTemp,
-	FurnaceStatus_ToSecondKeepTemp,
-	FurnaceStatus_KeepSecondkeepTemp,
-	FurnaceStatus_Finish,
-	FurnaceStatus_FatalError //回復不可能なエラー
+	FurnaceControllerStatus_Stop = 0,
+	FurnaceControllerStatus_Startup,
+	FurnaceControllerStatus_ToFirstKeepTemp,
+	FurnaceControllerStatus_KeepFirstKeepTemp,
+	FurnaceControllerStatus_ToSecondKeepTemp,
+	FurnaceControllerStatus_KeepSecondkeepTemp,
+	FurnaceControllerStatus_Finish,
+	FurnaceControllerStatus_FatalError //回復不可能なエラー
 };
 
-enum FurnaceControllError
+enum FurnaceControllerError
 {
-	FurnaceError_NotEnoughTemperatureUpward
+	FurnaceControllerError_None = 0,
+	FurnaceControllerError_NotEnoughTemperatureUpward,
+	FurnaceControllerError_StartupFailure
 };
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
@@ -64,22 +67,33 @@ public:
 	bool Tick();
 	void Start();
 	void Stop();
+	bool isRunning();
 
 	double ShowGoalTemperature();
+	double ShowMinimumTemperature();
 	FurnaceOrder ShowOrderForFurnaceThread();
+	FurnaceControllerStatus ShowStatus();
+	FurnaceControllerError CheckError();
+	unsigned long ShowElapseTime(); //経過時間
+	unsigned long ShowRemainTime(); //残り時間
 	void InputTemperature(double Temperature);
 private:
 	double GoalTemperature;
 	double MinimumTemperature;
-	unsigned long KeepTimer, StartTime, FinishTimer; //温度維持のため、焼きの開始時間、焼きの終了予想時間を示すタイマー
+	unsigned long StartTime; //焼きの開始時間
+	unsigned long FinishTime; //焼きの終了予想時間を示す
+	SimpleTimerThread MainTimer;
+	SimpleTimerThread KeepTimer;//温度維持のためのタイマー
 
-	FurnaceStatus WorkStatus;
+	FurnaceControllerStatus WorkStatus;
+	FurnaceControllerError ErrorStatus;
 	FurnaceOrder Order;
 
-	void UpdateGoalTemperature(); //目標温度を制御状態に合わせて変化させる。ここをインターフェースを用意して別クラスにすれば汎用性が出そう。
 	void RisingTemperature(); //目標温度を上昇させる。実際の温度と離れると補正がはいる。
 	void CalcFinishTime(); //終了予定時間の計算をする。
 
+	//定数
+	static const unsigned long Interval; //制御周期
 	static const double IncreaseTemperaturePerMillis;  //1msあたりの温度上昇量 一分当たり2℃上昇 2/60/1000
 	static  const double IncreaseTemperaturePerInterval;
 	static const double MillisPerIncreaseTemperature;//終了時間の計算のために1周期あたりの計算
@@ -88,7 +102,6 @@ private:
 	static const double SecondKeepTemperature; //第二保持温度(℃)
 	static const unsigned long SecondKeepTime; //120分維持
 	static const double AllowableTemperatureError; //温度制御の許容誤差
-
 };
 
 /*
@@ -96,7 +109,7 @@ private:
 リレーをIntervalごとにOnTimeの長さだけ開放する。
 */
 
-class SolidStateRelayThread : public ThreadBase,public IRelayController
+class SolidStateRelayThread : public ThreadBase, public IRelayController
 {
 public:
 	SolidStateRelayThread(uint8_t controlPin);
@@ -127,7 +140,7 @@ Furnaceを拡張し、LCDに情報を表示できるように。
 class FurnaceDisplay : public FurnaceThread
 {
 public:
-	FurnaceDisplay(uint8_t RelayControlPin, IThermometer &thermometer, LiquidCrystal &lcd);
+	FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd);
 	void Setup();
 	void Start();
 	bool Tick(); //FurnaceがTrueを返した時に画面表示の更新を行いTrueを返す。
@@ -135,17 +148,17 @@ public:
 
 	void PrevDisplay(); //次の画面に遷移。Temperature,Time,ControlInfoをぐるぐるする。
 	void NextDisplay(); //前の画面に遷移。Temperature,Time,ControlInfoをぐるぐるする。
-	void SetDisplayChanging(); //自動画面遷移のフラグを反転させる。
 	void SetDisplayChanging(bool flag); //自動で画面遷移するかどうか。
-	void SetDisplayMode(DisplayMode displayMode); //任意の画面を表示する。
+	void SetDisplayChanging(); //自動で画面遷移するかどうかのフラグを反転する。
 
 	void DataOutputBySerial();
 
+	static void SetTemperatureController(TemperatuerControllerThreadForPrepreg& temperatureController);
 private:
 	DisplayMode NowDisplayMode; //表示している画面
 	SimpleTimerThread DisplayChangeTimer; //画面の自動遷移のためのタイマー
 	LiquidCrystal &LCD; //表示用のLCD。別の場所でインスタンスの生成が出来たほうが幸せなので。
-	//	VelocityPID_Ipd pidController(AverageTemperature, PIDOutput, TemperatureController.ShowGoalTemperatureReference(), KP, KI, KD, CONTROLMAX*0.5)
+	SolidStateRelayThread SolidStateRelay;
 
 	void PrintTemperature(double InputTemperature); //画面に温度を表示する
 	void PrintTime(unsigned long InputTime); //画面に時間を表示する。99:59:59を超えると位置ずれする。
@@ -160,10 +173,14 @@ private:
 	void DisplayENDMode();
 	void DisplayError();
 
+	static TemperatuerControllerThreadForPrepreg& TemperatureControllerForPrepreg;
+
+//定数
 	static const unsigned long DisplayChangeTime; //画面の自動遷移の間隔
 	static const double Kp; //PIDパラメータ
 	static const double Ki; //PIDパラメータ
 	static const double Kd; //PIDパラメータ
+	static const unsigned long Interval;
 };
 
 

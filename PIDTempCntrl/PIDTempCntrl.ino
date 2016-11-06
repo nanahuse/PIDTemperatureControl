@@ -4,39 +4,41 @@
 
 //--------------------------------------------------------ピンの設定--------------------------------------------------------
 //熱電対
-#define TM_SSPIN 11
-#define TM_MISOPIN 12
-#define TM_SCKPIN 13
+const uint8_t TM_SSPin = 11;
+const uint8_t  TM_MISOPin = 12;
+const uint8_t  TM_SCKPin = 13;
 //LCD
-#define LCD_RS 3
-#define LCD_RW 9
-#define LCD_ENAB 4
-#define LCD_DB4 8
-#define LCD_DB5 5
-#define LCD_DB6 7
-#define LCD_DB7 6
+const uint8_t  LCD_RSPin = 3;
+const uint8_t  LCD_RWPin = 9;
+const uint8_t  LCD_ENABPin = 4;
+const uint8_t  LCD_DB4Pin = 8;
+const uint8_t  LCD_DB5Pin = 5;
+const uint8_t  LCD_DB6Pin = 7;
+const uint8_t  LCD_DB7Pin = 6;
 //ボタン
-#define LEFTSW  15
-#define CENTERSW  16
-#define RIGHTSW 17
+const uint8_t  LeftSwitchPin = 15;
+const uint8_t  CenterSwitchPin = 16;
+const uint8_t  RightSwitchPin = 17;
 //その他
-#define CONTROLPIN 2 //SSR
-#define BUZZERPIN 14 //Buzzer
+const uint8_t  SSRControlPin = 2; //SSR
+const uint8_t  BuzzerPin = 14; //Buzzer
 
 //--------------------------------------------------------変数の宣言--------------------------------------------------------
-Thermocouple thermocouple = Thermocouple(TM_SCKPIN, TM_SSPIN, TM_MISOPIN);
-LiquidCrystal LCD = LiquidCrystal(LCD_RS, LCD_RW, LCD_ENAB, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
-FurnaceDisplay furnaceDisplay = FurnaceDisplay(CONTROLPIN, &thermocouple, &LCD);
-BuzzerThread Buzzer = BuzzerThread(BUZZERPIN);
+Thermocouple thermocouple = Thermocouple(TM_SCKPin, TM_SSPin, TM_MISOPin);
+LiquidCrystal LCD = LiquidCrystal(LCD_RSPin, LCD_RWPin, LCD_ENABPin, LCD_DB4Pin, LCD_DB5Pin, LCD_DB6Pin, LCD_DB7Pin);
+TemperatuerControllerThreadForPrepreg TemperatureController = TemperatuerControllerThreadForPrepreg();
+FurnaceDisplay furnaceDisplay = FurnaceDisplay(SSRControlPin, thermocouple, LCD);
+BuzzerThread Buzzer = BuzzerThread(BuzzerPin);
 
-ButtonClass RightButton = ButtonClass(RIGHTSW, false);
-ButtonClass CenterButton = ButtonClass(CENTERSW, false);
-ButtonClass LeftButton = ButtonClass(LEFTSW, false);
+ButtonClass RightButton = ButtonClass(RightSwitchPin, false);
+ButtonClass CenterButton = ButtonClass(CenterSwitchPin, false);
+ButtonClass LeftButton = ButtonClass(LeftSwitchPin, false);
 
 
 //--------------------------------------------------------メイン--------------------------------------------------------
 void setup()
 {
+	furnaceDisplay.SetTemperatureController(TemperatureController);
 	furnaceDisplay.Setup();
 
 #ifndef ESP8266
@@ -54,14 +56,32 @@ void setup()
 void loop()
 {
 	Buzzer.Tick();
-	if ( furnaceDisplay.Tick() )
+	furnaceDisplay.Tick();
+	if ( TemperatureController.Tick() )
 	{
-		furnaceDisplay.DataOutputBySerial();
-		if ( furnaceDisplay.CheckError() == ErrorNotEnoughTemperatureUpward )
+		switch ( TemperatureController.CheckError() )
 		{
-			Buzzer.SoundOnce(200);
+			case FurnaceControllerError_None:
+				break;
+			case FurnaceControllerError_NotEnoughTemperatureUpward:
+				Buzzer.SoundOnce(200);
+				break;
+			case FurnaceControllerError_StartupFailure:
+				Buzzer.SetSound(10000, 3000);
+				while ( !CenterButton.isPressed() )
+				{
+					Buzzer.Tick();
+					furnaceDisplay.Tick();
+				}
+				Buzzer.Stop();
+				while ( true )
+				{
+					furnaceDisplay.Tick();
+				}
+				break;
 		}
-		if ( furnaceDisplay.ShowStatus() == StatusFinish )
+
+		if ( TemperatureController.ShowStatus() == FurnaceControllerStatus_Finish )
 		{
 			//焼きが終了したらブザーを鳴らす。真ん中のボタンを押したら開放。
 			Buzzer.SetSound(3000, 500);
@@ -78,6 +98,7 @@ void loop()
 			}
 		}
 	}
+
 
 	if ( RightButton.isPressed() )
 	{

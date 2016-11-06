@@ -19,18 +19,22 @@
 //FurnaceThread(炉)のエラー状態を表す。Furnace::CheckStatusで返る値。
 enum FurnaceThreadStatus
 {
-	FurnaceThreadStatus_OK = 0, //エラー無し　false
-	FurnaceThreadStatus_StopAll, //停止中．
-	FurnaceThreadStatus_StopReray, //リレーのみ停止している状態．
+	FurnaceThreadStatus_Stop = 0, //停止中.
+	FurnaceThreadStatus_Working,
+	FurnaceThreadStatus_StopRelay, //リレーのみ停止している状態．
 	FurnaceThreadStatus_FatalError, //ならないと良いな。
-	FurnaceThreadStatus_OutputShortage, //出力が足りない 出力が最大の時に表示
-	FurnaceThreadStatus_NotGetTemperature //温度計がうまく動かない
+};
+
+enum FurnaceThreadError
+{
+	FurnaceThreadError_None = 0,  //エラー無し　false
+	FurnaceThreadError_OutputShortage, //出力が足りない 出力が最大の時に表示
 };
 
 //FurnaceThreadへ命令するときに使う．
 enum FurnaceOrder
 {
-	FurnaceOrder_None = 0, //通常通り動いてね　false
+	FurnaceOrder_Work = 0, //通常通り動いてね　false
 	FurnaceOrder_StopAll,  //停止させる．
 	FurnaceOrder_StopRelay //リレーだけ止めて温度計測は続けるとき
 };
@@ -67,7 +71,7 @@ public:
 class ITemperatureController //なんか名前変かも　ControllerとかHostとかのほうがよさげ
 {
 public:
-	virtual double ShowGoalTemeperature() = 0;
+	virtual double ShowGoalTemperature() = 0;
 	virtual void InputTemperature(double Temperature) = 0;
 	virtual FurnaceOrder ShowOrderForFurnaceThread() = 0;
 };
@@ -80,14 +84,15 @@ public:
 class FurnaceThread :public ThreadBase
 {
 public:
-	FurnaceThread(IRelayController &relayController, IThermometer &thermometer,  double Kp, double Ki,double Kd, double Interval);
+	FurnaceThread(IRelayController &relayController, IThermometer &thermometer, double Kp, double Ki, double Kd, double Interval);
 	void Start();
 	bool Tick(); //温度測定及びPID計算を行ったタイミングでTrueを返す。
 	void Stop();
 	bool isRunning();
 	void SetIntervalTimer(unsigned long Time);
 
-	FurnaceThreadStatus ShowStatus(); //炉の状態を表示する。一度実行するとエラー無しが返るようになる。
+	FurnaceThreadStatus ShowStatus(); //炉の状態を表示する。
+	FurnaceThreadError CheckError(); //炉のエラーを表示する．
 
 	static void SetTemperatureController(ITemperatureController &temeperatureController);
 
@@ -104,7 +109,8 @@ protected:
 	double NowTemperature; //現在の温度
 	double GoalTemperature; //目標温度
 
-	FurnaceThreadStatus WorkStatus; //炉の状態を表す
+	FurnaceThreadStatus WorkStatus; //炉の稼働状態を表す
+	FurnaceThreadError ErrorStatus; //炉に関するエラー
 
 	static ITemperatureController &TemperatureController; //温度の変化を制御するコントローラー 全部の並列で走らせても共通されるようにstatic
 

@@ -9,36 +9,35 @@ FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &th
 	MainTimer.SetInterval(interval);
 	PIDController.SetOutputLimits(0.0, RelayOutputMax);
 	PIDController.SetSampleTime(interval);
+	ErrorStatus = FurnaceThreadError_None;
 	this->Stop();
 }
 
 void FurnaceThread::Start()
 {
-	NowTemperature = Thermometer.Read();
-	TemperatureController.InputTemperature(NowTemperature);
-
-	RelayController.Start();
-
-	SetIntervalTimer(millis());
+	GetTemperature();
+	MainTimer.Start();
+	WorkStatus = FurnaceThreadStatus_StopRelay; //安全のためリレーはいきなり動かし初めない．
 }
 
 bool FurnaceThread::Tick()
 {
 	if ( MainTimer.Tick() )
 	{
+		ErrorStatus = FurnaceThreadError_None;
 		GetOrder();
 
-		if ( WorkStatus == FurnaceThreadStatus_StopAll ) return false;
+		if ( WorkStatus == FurnaceThreadStatus_Stop ) return false;
 
 		GetTemperature();
 
-		if ( WorkStatus == FurnaceThreadStatus_StopReray ) return true;
+		if ( WorkStatus == FurnaceThreadStatus_StopRelay ) return true;
 
 		PIDController.Compute();
 		RelayController.SetOutput(PIDOutput);
 		if ( PIDOutput == RelayOutputMax )
 		{
-			WorkStatus = FurnaceThreadStatus_OutputShortage;
+			ErrorStatus = FurnaceThreadError_OutputShortage;
 		}
 
 		return true;
@@ -50,7 +49,7 @@ void FurnaceThread::Stop()
 {
 	RelayController.Stop();
 	MainTimer.Stop();
-	WorkStatus = FurnaceThreadStatus_StopAll;
+	WorkStatus = FurnaceThreadStatus_Stop;
 }
 
 void FurnaceThread::SetIntervalTimer(unsigned long Time)
@@ -65,53 +64,40 @@ bool FurnaceThread::isRunning()
 
 void FurnaceThread::GetTemperature()
 {
-	double TempTemperature = Thermometer.Read();
-
-	if ( isnan(TempTemperature) )
-	{
-		WorkStatus = FurnaceThreadStatus_NotGetTemperature;
-	}
-	else
-	{
-		NowTemperature = TempTemperature;
-	}
-
-	TemperatureController.InputTemperature(TempTemperature);
+	NowTemperature = Thermometer.Read();
+	TemperatureController.InputTemperature(NowTemperature);
 }
 
 void FurnaceThread::GetOrder()
 {
 	switch ( TemperatureController.ShowOrderForFurnaceThread() )
 	{
+		case FurnaceOrder_Work:
+			if ( WorkStatus != FurnaceThreadStatus_Working )
+			{
+				WorkStatus = FurnaceThreadStatus_Working;
+				RelayController.Start();
+			}
+			GoalTemperature = TemperatureController.ShowGoalTemperature();
+			break;
 		case FurnaceOrder_StopAll:
 			this->Stop();
 			break;
 		case FurnaceOrder_StopRelay:
-			WorkStatus = FurnaceThreadStatus_StopReray;
+			WorkStatus = FurnaceThreadStatus_StopRelay;
 			RelayController.Stop();
-			break;
-		default:
-			GoalTemperature = TemperatureController.ShowGoalTemeperature();
 			break;
 	}
 }
 
 FurnaceThreadStatus FurnaceThread::ShowStatus()
 {
-	FurnaceThreadStatus ReturnStatus = WorkStatus;
+	return WorkStatus;
+}
 
-	switch ( WorkStatus )
-	{
-		case FurnaceThreadStatus_OutputShortage:
-			WorkStatus = FurnaceThreadStatus_OK; //一度実行するとエラー無しが返るようになる。
-			break;
-		case FurnaceThreadStatus_NotGetTemperature:
-			WorkStatus = FurnaceThreadStatus_OK; //一度実行するとエラー無しが返るようになる。
-			break;
-		default:
-			break;
-	}
-	return ReturnStatus;
+FurnaceThreadError FurnaceThread::CheckError()
+{
+	return ErrorStatus;
 }
 
 void FurnaceThread::SetTemperatureController(ITemperatureController &temeperatureController)
