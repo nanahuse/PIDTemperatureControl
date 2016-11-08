@@ -8,12 +8,6 @@
 #endif
 
 //時間系はミリ秒だよ
-
-//--------------------------------------------------------マクロ--------------------------------------------------------
-
-#define ULMAX 4294967295 //unsigned longの最大値
-#define SetTimerStop(Timer) Timer = ULMAX //タイマーを取りうる最大値にすることによって実質的に止める。動く可能性があるのは約50日後の一瞬
-
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
 
@@ -24,12 +18,10 @@
 class ThreadBase
 {
 public:
-	virtual bool Tick() = 0; //処理の実行。ループ内で使用する。タイマーによって処理が起きたときにTrueを返すようにする。
-	virtual void Start() = 0; //タイマーの開始処理他。
-	virtual void Stop() = 0; //タイマーの停止処理他。
-	virtual bool isRunning() = 0; //タイマーを見ることで動いているかを確認する。
-
-protected:
+	virtual bool Tick() = 0; //処理の実行。ループ内で使用する。処理が起きたときにTrueを返すようにする。
+	virtual void Start() = 0;
+	virtual void Stop() = 0;
+	virtual bool isRunning() = 0;
 };
 
 
@@ -49,70 +41,15 @@ public:
 
 	virtual bool Tick();
 	virtual void Start();
+	virtual void Start(unsigned long intervalTimer); //動作を開始する．IntervalTimerを任意の時間に設定しすることで処理のタイミングを調整出来る．過去の時間を設定した場合でも未来の時間までずらしていきなり動作することを防ぐ．
 	virtual void Stop();
 	virtual void SetInterval(unsigned long interval);
-	virtual	void SetIntervalTimer(unsigned long Time); //IntervalTimerを任意の時間に設定する。これによって処理のタイミングを調整出来る。
 	virtual bool isRunning(); //タイマーを見ることで動いているかを確認する。
 
 protected:
 	unsigned long IntervalTimer, Interval;
 	virtual void UpdateIntervalTimer(); //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ．もし(Interval >= ULMAX - IntervalTimer)な状態で実行されると無限ループするよ！
+	static const unsigned long UnsignedLongMax; //unsigned longの最大値
 };
-
-
-//--------------------------以下SimpleTimerThreadの定義-------------------------------------------
-SimpleTimerThread::SimpleTimerThread()
-{
-	SetInterval(0);
-	Stop();
-}
-
-bool SimpleTimerThread::Tick()
-{
-	if ( millis() >= IntervalTimer )
-	{
-		UpdateIntervalTimer();
-		return true;
-	}
-	return false;
-}
-void SimpleTimerThread::Start()
-{
-	IntervalTimer = millis() + Interval;
-}
-void SimpleTimerThread::Stop()
-{
-	SetTimerStop(IntervalTimer);
-}
-void SimpleTimerThread::SetInterval(unsigned long interval)
-{
-	if ( interval = 0 )
-	{
-		Interval = 1; //無限ループの防止
-	}
-	else
-	{
-		Interval = interval;
-	}
-}
-void SimpleTimerThread::SetIntervalTimer(unsigned long Time) //IntervalTimerを任意の時間に設定する。これによって処理のタイミングを調整出来る。
-{
-	IntervalTimer = Time;
-	UpdateIntervalTimer();
-}
-
-bool SimpleTimerThread::isRunning() //タイマーを見ることで動いているかを確認する。
-{
-	return IntervalTimer != ULMAX; //SetTimerStopがタイマーを最大値にすることによってタイマーを止めているため。
-}
-
-void SimpleTimerThread::UpdateIntervalTimer() //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ
-{
-	unsigned long NowTime = millis();
-	while ( IntervalTimer <= NowTime )
-	{
-		IntervalTimer += Interval;
-	}
-}
 
 #endif

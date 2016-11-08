@@ -3,7 +3,7 @@
 // 
 #include "ElectricFurnace.h"
 
-FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &thermometer,double Kp,double Ki,double Kd,double interval) :MainTimer(), RelayController(relayController), Thermometer(thermometer), PIDController(NowTemperature,PIDOutput,GoalTemperature,Kp,Ki,Kd,500.0)
+FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &thermometer, ITemperatureController &temperatureController,double Kp,double Ki,double Kd,double interval) :MainTimer(), RelayController(relayController), Thermometer(thermometer),TemperatureController(temperatureController), PIDController(NowTemperature,PIDOutput,GoalTemperature,Kp,Ki,Kd,500.0)
 {
 	NowTemperature = 0.0;
 	MainTimer.SetInterval(interval);
@@ -15,9 +15,14 @@ FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &th
 
 void FurnaceThread::Start()
 {
+	Start(millis());
+}
+
+void FurnaceThread::Start(unsigned long intervalTimer)
+{ 
 	GetTemperature();
-	MainTimer.Start();
-	WorkStatus = FurnaceThreadStatus_StopRelay; //安全のためリレーはいきなり動かし初めない．
+	MainTimer.Start(intervalTimer);
+	WorkStatus = FurnaceThreadStatus_StopRelay;
 }
 
 bool FurnaceThread::Tick()
@@ -50,11 +55,6 @@ void FurnaceThread::Stop()
 	RelayController.Stop();
 	MainTimer.Stop();
 	WorkStatus = FurnaceThreadStatus_Stop;
-}
-
-void FurnaceThread::SetIntervalTimer(unsigned long Time)
-{
-	MainTimer.SetIntervalTimer(Time);
 }
 
 bool FurnaceThread::isRunning()
@@ -100,7 +100,3 @@ FurnaceThreadError FurnaceThread::CheckError()
 	return ErrorStatus;
 }
 
-void FurnaceThread::SetTemperatureController(ITemperatureController &temeperatureController)
-{
-	TemperatureController = temeperatureController;
-}

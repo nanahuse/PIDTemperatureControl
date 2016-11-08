@@ -19,6 +19,7 @@ const unsigned long ControlInterval = 1000; //Furnaceの制御周期。SolidStat
 
 //制御系
 const double TemperatuerControllerThreadForPrepreg::AllowableTemperatureError = 1.0; //摂氏。制御の際に許す誤差。
+const double TemperatuerControllerThreadForPrepreg::ErrorTemperature = 140; //これ超えたらエラーはくよ
 const unsigned long TemperatuerControllerThreadForPrepreg::Interval = ControlInterval; //制御周期
 
 //温度設定
@@ -29,6 +30,7 @@ const double TemperatuerControllerThreadForPrepreg::FirstKeepTemperature = 80.0 
 const unsigned long TemperatuerControllerThreadForPrepreg::FirstKeepTime = 30 * 60 * 1000; //30分維持
 const double TemperatuerControllerThreadForPrepreg::SecondKeepTemperature = 130.0 + AllowableTemperatureError; //第二保持温度(℃)
 const unsigned long TemperatuerControllerThreadForPrepreg::SecondKeepTime = 120 * 60 * 100; //120分維持
+
 
 const unsigned long FurnaceDisplay::DisplayChangeTime = 3000; //画面の自動遷移の間隔
 const unsigned long FurnaceDisplay::Interval = ControlInterval;
@@ -81,7 +83,11 @@ SolidStateRelayThread::SolidStateRelayThread(uint8_t controlPin) :MainTimer(), S
 
 void SolidStateRelayThread::Start()
 {
-	MainTimer.Start();
+	Start(millis()); //デフォルト引数使うとStart()居ないって怒られるため．
+}
+void SolidStateRelayThread::Start(unsigned long intervalTimer)
+{
+	MainTimer.Start(intervalTimer);
 	SafetyTimer.Stop();
 	SwitchingTimer.Stop();
 }
@@ -117,7 +123,7 @@ bool SolidStateRelayThread::Tick()
 		if ( OnTime >= ChangeTime ) //リレーの開放時間がリレーの切り替えより長いときのみ開放する．
 		{
 			digitalWrite(ControlPin, HIGH);
-			SafetyTimer.SetIntervalTimer(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
+			SafetyTimer.Start(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
 		}
 		if ( OnTime > Interval - ChangeTime )
 		{
@@ -127,14 +133,14 @@ bool SolidStateRelayThread::Tick()
 		{
 			SwitchingTimer.SetInterval(OnTime);
 		}
-		SwitchingTimer.SetIntervalTimer(TempTimer); //
+		SwitchingTimer.Start(TempTimer); //
 		return true;
 	}
 
 	if ( SwitchingTimer.Tick() )
 	{
 		digitalWrite(ControlPin, LOW);
-		SafetyTimer.SetIntervalTimer(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
+		SafetyTimer.Start(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
 
 		SwitchingTimer.Stop();
 	}
@@ -146,26 +152,14 @@ bool SolidStateRelayThread::isRunning()
 	return MainTimer.isRunning();
 }
 
-void SolidStateRelayThread::SetIntervalTimer(unsigned long Time)
-{
-	MainTimer.SetIntervalTimer(Time);
-}
-
 void SolidStateRelayThread::SetOutput(double Output)
 {
 	OnTime = (unsigned long)(Output*OutputLimitPerRelayOutputMax);
 }
 
-FurnaceDisplay::FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd) :SolidStateRelay(ControlPin), FurnaceThread(SolidStateRelay, thermometer, Kp, Ki, Kd, Interval), DisplayChangeTimer(), LCD(lcd)
+FurnaceDisplay::FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd, TemperatuerControllerThreadForPrepreg &temperatureController) :SolidStateRelay(ControlPin), FurnaceThread(SolidStateRelay, thermometer,temperatureController, Kp, Ki, Kd, Interval), DisplayChangeTimer(), LCD(lcd), TemperatureControllerForPrepreg(temperatureController)
 {
-	NowDisplayMode = DisplayMode_Setup;
-}
-
-void FurnaceDisplay::Setup()
-{
-	LCD.begin(16, 2); //これここ？
-	DisplaySetupMode();
-	DisplayChangeTimer.SetInterval(DisplayChangeTime);
+	NowDisplayMode = DisplayMode_Temperature;
 }
 
 void FurnaceDisplay::DataOutputBySerial()
@@ -184,17 +178,18 @@ void FurnaceDisplay::DataOutputBySerial()
 	Serial.println();
 }
 
-void FurnaceDisplay::SetTemperatureController(TemperatuerControllerThreadForPrepreg & temperatureController)
-{
-	TemperatureControllerForPrepreg = temperatureController;
-	FurnaceThread::SetTemperatureController(temperatureController);
-}
+
 
 void FurnaceDisplay::Start()
 {
-	FurnaceThread::Start();
+	Start(millis()); //デフォルト引数使うとStart()居ないって怒られるため．
+}
+
+void FurnaceDisplay::Start(unsigned long intervalTimer)
+{
+	FurnaceThread::Start(intervalTimer);
 	NowDisplayMode = DisplayMode_Temperature;
-	DisplayChangeTimer.Start();
+	DisplayChangeTimer.Start(intervalTimer);
 }
 
 bool FurnaceDisplay::Tick()
@@ -211,7 +206,7 @@ bool FurnaceDisplay::Tick()
 				NowDisplayMode = DisplayMode_Error;
 				break;
 			default:
-				
+
 				break;
 		}
 		Update();
@@ -299,9 +294,6 @@ void FurnaceDisplay::Update()
 {
 	switch ( NowDisplayMode )
 	{
-		case DisplayMode_Setup:
-			DisplaySetupMode();
-			break;
 		case DisplayMode_Temperature:
 			DisplayTemperature();
 			break;
@@ -320,15 +312,6 @@ void FurnaceDisplay::Update()
 		default:
 			break;
 	}
-}
-
-void FurnaceDisplay::DisplaySetupMode()
-{
-	LCD.clear();
-	LCD.setCursor(0, 0);
-	LCD.print("HELLO-1234567890");
-	LCD.setCursor(0, 1);
-	LCD.print("------STOP------");
 }
 
 void FurnaceDisplay::DisplayTemperature()
@@ -490,7 +473,7 @@ bool TemperatuerControllerThreadForPrepreg::Tick()
 				if ( KeepTimer.Tick() )
 				{
 					KeepTimer.Stop();
-					if ( MinimumTemperature >= SecondKeepTemperature + AllowableTemperatureError )
+					if ( MinimumTemperature >= ErrorTemperature ) //始めの値から更新されてないときはエラーを吐く
 					{
 						this->Stop();
 						WorkStatus = FurnaceControllerStatus_FatalError;
@@ -570,7 +553,7 @@ void TemperatuerControllerThreadForPrepreg::Start()
 {
 	MainTimer.Start();
 	GoalTemperature = 0.0;
-	MinimumTemperature = SecondKeepTemperature + AllowableTemperatureError; //入力を受け入れるために大きめにしておく
+	MinimumTemperature = ErrorTemperature + AllowableTemperatureError; //入力を受け入れるために大きめにしておく
 	KeepTimer.SetInterval(10000); //十秒間温度を取得してもらう．
 	KeepTimer.Start();
 	StartTime = millis();
@@ -633,6 +616,10 @@ void TemperatuerControllerThreadForPrepreg::InputTemperature(double Temperature)
 	if ( Temperature < MinimumTemperature )
 	{
 		MinimumTemperature = Temperature;
+	}
+	if ( Temperature > ErrorTemperature )
+	{
+		ErrorStatus = FurnaceControllerError_TooHot;
 	}
 }
 

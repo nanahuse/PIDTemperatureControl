@@ -18,7 +18,6 @@
 //画面の表示状態を決める値。名前が変な気がする。
 enum DisplayMode
 {
-	DisplayMode_Setup,
 	DisplayMode_Temperature,
 	DisplayMode_Time,
 	DisplayMode_ControlInfo,
@@ -43,7 +42,8 @@ enum FurnaceControllerError
 {
 	FurnaceControllerError_None = 0,
 	FurnaceControllerError_NotEnoughTemperatureUpward,
-	FurnaceControllerError_StartupFailure
+	FurnaceControllerError_TooHot,
+	FurnaceControllerError_StartupFailure //回復不能
 };
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
@@ -102,6 +102,7 @@ private:
 	static const double SecondKeepTemperature; //第二保持温度(℃)
 	static const unsigned long SecondKeepTime; //120分維持
 	static const double AllowableTemperatureError; //温度制御の許容誤差
+	static const double ErrorTemperature; //許容最大温度．
 };
 
 /*
@@ -114,10 +115,10 @@ class SolidStateRelayThread : public ThreadBase, public IRelayController
 public:
 	SolidStateRelayThread(uint8_t controlPin);
 	void Start();
+	void Start(unsigned long intervalTimer);
 	void Stop();
 	bool Tick(); //リレーがOnになるタイミングでTrueを返す。
 	bool isRunning();
-	void SetIntervalTimer(unsigned long Time);
 	void SetOutput(double Output);
 
 private:
@@ -140,9 +141,9 @@ Furnaceを拡張し、LCDに情報を表示できるように。
 class FurnaceDisplay : public FurnaceThread
 {
 public:
-	FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd);
-	void Setup();
+	FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd, TemperatuerControllerThreadForPrepreg &temperatureController);
 	void Start();
+	void Start(unsigned long intervalTimer);
 	bool Tick(); //FurnaceがTrueを返した時に画面表示の更新を行いTrueを返す。
 	void Stop();
 
@@ -153,7 +154,6 @@ public:
 
 	void DataOutputBySerial();
 
-	static void SetTemperatureController(TemperatuerControllerThreadForPrepreg& temperatureController);
 private:
 	DisplayMode NowDisplayMode; //表示している画面
 	SimpleTimerThread DisplayChangeTimer; //画面の自動遷移のためのタイマー
@@ -166,14 +166,13 @@ private:
 	void Update(); //DisplayModeに従い画面を更新する。
 
 //表示する画面の中身
-	void DisplaySetupMode();
 	void DisplayTemperature();
 	void DisplayTime();
 	void DisplayControlInfo();
 	void DisplayENDMode();
 	void DisplayError();
 
-	static TemperatuerControllerThreadForPrepreg& TemperatureControllerForPrepreg;
+	TemperatuerControllerThreadForPrepreg& TemperatureControllerForPrepreg;
 
 //定数
 	static const unsigned long DisplayChangeTime; //画面の自動遷移の間隔

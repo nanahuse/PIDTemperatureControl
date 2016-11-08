@@ -27,7 +27,7 @@ const uint8_t  BuzzerPin = 14; //Buzzer
 Thermocouple thermocouple = Thermocouple(TM_SCKPin, TM_SSPin, TM_MISOPin);
 LiquidCrystal LCD = LiquidCrystal(LCD_RSPin, LCD_RWPin, LCD_ENABPin, LCD_DB4Pin, LCD_DB5Pin, LCD_DB6Pin, LCD_DB7Pin);
 TemperatuerControllerThreadForPrepreg TemperatureController = TemperatuerControllerThreadForPrepreg();
-FurnaceDisplay furnaceDisplay = FurnaceDisplay(SSRControlPin, thermocouple, LCD);
+FurnaceDisplay furnaceDisplay = FurnaceDisplay(SSRControlPin, thermocouple, LCD,TemperatureController);
 BuzzerThread Buzzer = BuzzerThread(BuzzerPin);
 
 ButtonClass RightButton = ButtonClass(RightSwitchPin, false);
@@ -38,8 +38,12 @@ ButtonClass LeftButton = ButtonClass(LeftSwitchPin, false);
 //--------------------------------------------------------メイン--------------------------------------------------------
 void setup()
 {
-	furnaceDisplay.SetTemperatureController(TemperatureController);
-	furnaceDisplay.Setup();
+	LCD.begin(16, 2); 
+	LCD.clear();
+	LCD.setCursor(0, 0);
+	LCD.print("HELLO-1234567890");
+	LCD.setCursor(0, 1);
+	LCD.print("-----SET UP-----");
 
 #ifndef ESP8266
 	while ( !Serial );     // will pause Zero, Leonardo, etc until serial console opens
@@ -50,6 +54,7 @@ void setup()
 
 	Buzzer.SoundOnce(1000);
 	furnaceDisplay.Start();
+	TemperatureController.Start();
 }
 
 
@@ -66,6 +71,8 @@ void loop()
 			case FurnaceControllerError_NotEnoughTemperatureUpward:
 				Buzzer.SoundOnce(200);
 				break;
+			case FurnaceControllerError_TooHot:
+				Buzzer.SoundOnce(3000);
 			case FurnaceControllerError_StartupFailure:
 				Buzzer.SetSound(10000, 3000);
 				while ( !CenterButton.isPressed() )

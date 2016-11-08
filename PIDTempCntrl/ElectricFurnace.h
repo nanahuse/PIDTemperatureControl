@@ -84,17 +84,15 @@ public:
 class FurnaceThread :public ThreadBase
 {
 public:
-	FurnaceThread(IRelayController &relayController, IThermometer &thermometer, double Kp, double Ki, double Kd, double Interval);
+	FurnaceThread(IRelayController &relayController, IThermometer &thermometer, ITemperatureController &temperatureController, double Kp, double Ki, double Kd, double Interval);
 	void Start();
+	void Start(unsigned long intervalTimer);
 	bool Tick(); //温度測定及びPID計算を行ったタイミングでTrueを返す。
 	void Stop();
 	bool isRunning();
-	void SetIntervalTimer(unsigned long Time);
 
 	FurnaceThreadStatus ShowStatus(); //炉の状態を表示する。
 	FurnaceThreadError CheckError(); //炉のエラーを表示する．
-
-	static void SetTemperatureController(ITemperatureController &temeperatureController);
 
 protected:
 	SimpleTimerThread MainTimer;
@@ -112,7 +110,7 @@ protected:
 	FurnaceThreadStatus WorkStatus; //炉の稼働状態を表す
 	FurnaceThreadError ErrorStatus; //炉に関するエラー
 
-	static ITemperatureController &TemperatureController; //温度の変化を制御するコントローラー 全部の並列で走らせても共通されるようにstatic
+	ITemperatureController &TemperatureController; //温度の変化を制御するコントローラー
 
 private:
 	void GetTemperature(); //温度を取得する。エラーが出た時は一つ前に取得できた値を使用する。
