@@ -63,11 +63,18 @@ bool BuzzerThread::isRunning()
 }
 
 
-ButtonClass::ButtonClass(uint8_t controlPin, bool canRepeat) : Timer()
+ButtonClass::ButtonClass(uint8_t controlPin,ButtonCircuitPattern pattern, bool canRepeat) : Timer()
 {
 	ControlPin = controlPin;
-	pinMode(ControlPin, INPUT_PULLUP);
-	SetCanRepeat(CanRepeat);
+	switch ( pattern )
+	{
+		case InputPullup:
+			pinMode(ControlPin, INPUT_PULLUP);
+			break;
+		case Pullup:
+			pinMode(ControlPin, INPUT); //Arduino DueにはINPUT_PULLUPがないみたい
+	}
+	SetCanRepeat(canRepeat);
 	SetRepeatTime(100);
 	OldStatus = false;
 }
@@ -88,6 +95,7 @@ void ButtonClass::SetCanRepeat(bool canRepeat)
 		Timer.SetInterval(100); //チャタリングの防止用
 		OldStatus = false;
 	}
+	Timer.Start();
 }
 
 bool ButtonClass::isPressed()

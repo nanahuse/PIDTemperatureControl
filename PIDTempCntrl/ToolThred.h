@@ -11,6 +11,14 @@
 
 #include "ThreadBase.h"
 
+enum ButtonCircuitPattern
+{
+	InputPullup,
+	Pullup,
+	Pulldown
+};
+
+
 /*
 擬似並列実行可能なブザー
 一度だけ鳴らす、一定周期ごとに繰り返し鳴らすのどちらかが可能。
@@ -42,7 +50,7 @@ CanRepeatをTrueにすると押しっぱなしの時はRepeatTimeの間隔でTru
 class ButtonClass
 {
 public:
-	ButtonClass(uint8_t controlPin, bool canRepeat);
+	ButtonClass(uint8_t controlPin,ButtonCircuitPattern pattern, bool canRepeat);
 	void SetRepeatTime(unsigned long RepeatTime);
 	void SetCanRepeat(bool canRepeat);
 	bool isPressed();
