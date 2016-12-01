@@ -83,11 +83,17 @@ void FurnaceThread::GetOrder()
 			GoalTemperature = TemperatureController.ShowGoalTemperature();
 			break;
 		case FurnaceOrder::StopAll:
-			this->Stop();
+			if ( WorkStatus != FurnaceThreadStatus::Stop )
+			{
+				this->Stop();
+			}
 			break;
 		case FurnaceOrder::StopRelay:
-			WorkStatus = FurnaceThreadStatus::StopRelay;
-			RelayController.Stop();
+			if ( WorkStatus != FurnaceThreadStatus::StopRelay )
+			{
+				WorkStatus = FurnaceThreadStatus::StopRelay;
+				RelayController.Stop();
+			}
 			break;
 	}
 }
