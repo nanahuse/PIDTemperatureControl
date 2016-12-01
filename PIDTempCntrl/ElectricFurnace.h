@@ -17,26 +17,26 @@
 
 
 //FurnaceThread(炉)のエラー状態を表す。Furnace::CheckStatusで返る値。
-enum FurnaceThreadStatus
+enum struct FurnaceThreadStatus
 {
-	FurnaceThreadStatus_Stop = 0, //停止中.
-	FurnaceThreadStatus_Working,
-	FurnaceThreadStatus_StopRelay, //リレーのみ停止している状態．
-	FurnaceThreadStatus_FatalError, //ならないと良いな。
+	Stop = 0, //停止中.
+	Working,
+	StopRelay, //リレーのみ停止している状態．
+	FatalError, //ならないと良いな。
 };
 
-enum FurnaceThreadError
+enum struct FurnaceThreadError
 {
-	FurnaceThreadError_None = 0,  //エラー無し　false
-	FurnaceThreadError_OutputShortage, //出力が足りない 出力が最大の時に表示
+	None = 0,  //エラー無し　false
+	OutputShortage, //出力が足りない 出力が最大の時に表示
 };
 
 //FurnaceThreadへ命令するときに使う．
-enum FurnaceOrder
+enum struct FurnaceOrder
 {
-	FurnaceOrder_Work = 0, //通常通り動いてね　false
-	FurnaceOrder_StopAll,  //停止させる．
-	FurnaceOrder_StopRelay //リレーだけ止めて温度計測は続けるとき
+	Work = 0, //通常通り動いてね　false
+	StopAll,  //停止させる．
+	StopRelay //リレーだけ止めて温度計測は続けるとき
 };
 
 const double RelayOutputMax = 1000.0;

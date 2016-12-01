@@ -7,7 +7,7 @@ SimpleTimerThread::SimpleTimerThread()
 
 bool SimpleTimerThread::Tick()
 {
-	if ( millis() >= IntervalTimer )
+	if ( GlobalTimer >= IntervalTimer )
 	{
 		UpdateIntervalTimer();
 		return true;
@@ -16,7 +16,7 @@ bool SimpleTimerThread::Tick()
 }
 void SimpleTimerThread::Start()
 {
-	IntervalTimer = millis() + Interval;
+	IntervalTimer = GlobalTimer + Interval;
 }
 void SimpleTimerThread::Start(unsigned long intervalTimer) //デフォルト引数使ってまとめようとしたらStart()ないって怒られた(´・ω・`)
 {
@@ -36,12 +36,15 @@ bool SimpleTimerThread::isRunning()
 	return IntervalTimer != UnsignedLongMax;
 }
 
+void SimpleTimerThread::GlobalTimerTick()
+{
+	GlobalTimer = millis();
+}
+
 void SimpleTimerThread::UpdateIntervalTimer() //現在時よりも未来にすることで動作を確実にする．
 {
-	unsigned long NowTime = millis();
-	while ( IntervalTimer <= NowTime )
-	{
-		IntervalTimer += Interval;
-	}
+	while ( IntervalTimer <= GlobalTimer )		IntervalTimer += Interval;
 }
 const unsigned long SimpleTimerThread::UnsignedLongMax = 4294967295; //unsigned longの上限
+
+unsigned long SimpleTimerThread::GlobalTimer = 0;

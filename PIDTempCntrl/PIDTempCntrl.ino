@@ -21,60 +21,112 @@ const uint8_t  CenterSwitchPin = 16;
 const uint8_t  RightSwitchPin = 17;
 //その他
 const uint8_t  SSRControlPin = 2; //SSR
-const uint8_t  BuzzerPin = 14; //Buzzer
+const uint8_t  BuzzerPin = 13; //Buzzer
 
 //--------------------------------------------------------変数の宣言--------------------------------------------------------
-Thermocouple thermocouple = Thermocouple(TM_SCKPin, TM_SSPin, TM_MISOPin);
-LiquidCrystal LCD = LiquidCrystal(LCD_RSPin, LCD_RWPin, LCD_ENABPin, LCD_DB4Pin, LCD_DB5Pin, LCD_DB6Pin, LCD_DB7Pin);
-TemperatuerControllerThreadForPrepreg TemperatureController = TemperatuerControllerThreadForPrepreg();
-FurnaceDisplay furnaceDisplay = FurnaceDisplay(SSRControlPin, thermocouple, LCD,TemperatureController);
-BuzzerThread Buzzer = BuzzerThread(BuzzerPin);
 
-ButtonClass RightButton = ButtonClass(RightSwitchPin, false);
-ButtonClass CenterButton = ButtonClass(CenterSwitchPin, false);
-ButtonClass LeftButton = ButtonClass(LeftSwitchPin, false);
+TestThremo thermocouple = TestThremo();
+SolidStateRelayThread relay = SolidStateRelayThread(SSRControlPin);
+BuzzerThread Buzzer = BuzzerThread(BuzzerPin);
+TemperatuerControllerThreadForPrepreg TemperatureController = TemperatuerControllerThreadForPrepreg();
+FurnaceThread Furnace = FurnaceThread(relay, thermocouple, TemperatureController, 1, 1, 1, 1000);
+
+//ButtonClass RightButton = ButtonClass(RightSwitchPin,Pullup, false);
+//ButtonClass CenterButton = ButtonClass(CenterSwitchPin,Pullup, false);
+//ButtonClass LeftButton = ButtonClass(LeftSwitchPin,Pullup, false);
 
 
 //--------------------------------------------------------メイン--------------------------------------------------------
 void setup()
 {
-	LCD.begin(16, 2); 
+	/*
+	LCD.begin(16, 2);
 	LCD.clear();
 	LCD.setCursor(0, 0);
 	LCD.print("HELLO-1234567890");
 	LCD.setCursor(0, 1);
 	LCD.print("-----SET UP-----");
-
-#ifndef ESP8266
-	while ( !Serial );     // will pause Zero, Leonardo, etc until serial console opens
-#endif
+	*/
 	Serial.begin(115200);
+	while ( !Serial );     // will pause Zero, Leonardo, etc until serial console opens
 	Serial.println("START");
 
 
-	Buzzer.SoundOnce(1000);
-	furnaceDisplay.Start();
+	Buzzer.SetSound(2000, 1000);
+	Buzzer.Start();
 	TemperatureController.Start();
+	Furnace.Start();
+	/*
+	furnaceDisplay.Start();
+	*/
 }
 
 
 void loop()
 {
+	SimpleTimerThread::GlobalTimerTick();
+
+	relay.Tick();
 	Buzzer.Tick();
-	furnaceDisplay.Tick();
-	if ( TemperatureController.Tick() )
+	if ( Furnace.Tick() )
+	{
+		if ( Furnace.ShowStatus() !=FurnaceThreadStatus::Working )
+		{
+			Serial.println("Furnace is NOT Working ");
+		}
+	}
+	if( TemperatureController.Tick())
 	{
 		switch ( TemperatureController.CheckError() )
 		{
-			case FurnaceControllerError_None:
+			case FurnaceControllerError::None:
 				break;
-			case FurnaceControllerError_NotEnoughTemperatureUpward:
+			case FurnaceControllerError::NotEnoughTemperatureUpward:
+				Serial.println("Not Enough TemperatureUpward");
 				Buzzer.SoundOnce(200);
 				break;
-			case FurnaceControllerError_TooHot:
+			case FurnaceControllerError::TooHot:
 				Buzzer.SoundOnce(3000);
-			case FurnaceControllerError_StartupFailure:
-				Buzzer.SetSound(10000, 3000);
+			case FurnaceControllerError::StartupFailure:
+				Buzzer.SetSound(5000, 3000);
+				Serial.println("Startup Failure");
+				while ( true );
+				break;
+		}
+	}
+	/*
+		furnaceDisplay.Tick();
+		if ( TemperatureController.Tick() )
+		{
+			switch ( TemperatureController.CheckError() )
+			{
+				case FurnaceControllerError::None:
+					break;
+				case FurnaceControllerError::NotEnoughTemperatureUpward:
+					Buzzer.SoundOnce(200);
+					break;
+				case FurnaceControllerError::TooHot:
+					Buzzer.SoundOnce(3000);
+				case FurnaceControllerError::StartupFailure:
+					Buzzer.SetSound(10000, 3000);
+					while ( !CenterButton.isPressed() )
+					{
+						Buzzer.Tick();
+						furnaceDisplay.Tick();
+					}
+					Buzzer.Stop();
+					while ( true )
+					{
+						furnaceDisplay.Tick();
+					}
+					break;
+			}
+
+			if ( TemperatureController.ShowStatus() == FurnaceControllerStatus::Finish )
+			{
+				//焼きが終了したらブザーを鳴らす。真ん中のボタンを押したら開放。
+				Buzzer.SetSound(3000, 500);
+				Buzzer.Start();
 				while ( !CenterButton.isPressed() )
 				{
 					Buzzer.Tick();
@@ -85,41 +137,24 @@ void loop()
 				{
 					furnaceDisplay.Tick();
 				}
-				break;
+			}
 		}
 
-		if ( TemperatureController.ShowStatus() == FurnaceControllerStatus_Finish )
+
+		if ( RightButton.isPressed() )
 		{
-			//焼きが終了したらブザーを鳴らす。真ん中のボタンを押したら開放。
-			Buzzer.SetSound(3000, 500);
-			Buzzer.Start();
-			while ( !CenterButton.isPressed() )
-			{
-				Buzzer.Tick();
-				furnaceDisplay.Tick();
-			}
-			Buzzer.Stop();
-			while ( true )
-			{
-				furnaceDisplay.Tick();
-			}
+			furnaceDisplay.NextDisplay();
 		}
-	}
+		if ( LeftButton.isPressed() )
+		{
+			furnaceDisplay.PrevDisplay();
+		}
+		if ( CenterButton.isPressed() )
+		{
+		Serial.println("Press!");
+		}
 
-
-	if ( RightButton.isPressed() )
-	{
-		furnaceDisplay.NextDisplay();
-	}
-	if ( LeftButton.isPressed() )
-	{
-		furnaceDisplay.PrevDisplay();
-	}
-
-	if ( CenterButton.isPressed() )
-	{
-		furnaceDisplay.SetDisplayChanging();
-	}
+		*/
 }
 
 /*

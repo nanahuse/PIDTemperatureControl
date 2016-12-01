@@ -68,10 +68,10 @@ ButtonClass::ButtonClass(uint8_t controlPin,ButtonCircuitPattern pattern, bool c
 	ControlPin = controlPin;
 	switch ( pattern )
 	{
-		case InputPullup:
+		case ButtonCircuitPattern:: InputPullup:
 			pinMode(ControlPin, INPUT_PULLUP);
 			break;
-		case Pullup:
+		case ButtonCircuitPattern::Pullup:
 			pinMode(ControlPin, INPUT); //Arduino DueにはINPUT_PULLUPがないみたい
 	}
 	SetCanRepeat(canRepeat);

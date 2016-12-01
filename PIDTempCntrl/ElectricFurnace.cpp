@@ -37,8 +37,10 @@ bool FurnaceThread::Tick()
 		GetTemperature();
 
 		if ( WorkStatus == FurnaceThreadStatus_StopRelay ) return true;
-
+		Serial.print(millis());
+		Serial.print("\t");
 		PIDController.Compute();
+		Serial.println(millis());
 		RelayController.SetOutput(PIDOutput);
 		if ( PIDOutput == RelayOutputMax )
 		{

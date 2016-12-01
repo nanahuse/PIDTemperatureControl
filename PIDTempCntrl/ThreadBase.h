@@ -46,8 +46,11 @@ public:
 	virtual void SetInterval(unsigned long interval);
 	virtual bool isRunning(); //タイマーを見ることで動いているかを確認する。
 
+	static void GlobalTimerTick(); //millis()関数の呼び出しを抑えるため
+
 protected:
 	unsigned long IntervalTimer, Interval;
+	static unsigned long GlobalTimer;
 	virtual void UpdateIntervalTimer(); //タイマーが確実に現在時間より未来になるようにすることで誤動作を防ぐ．もし(Interval >= ULMAX - IntervalTimer)な状態で実行されると無限ループするよ！
 	static const unsigned long UnsignedLongMax; //unsigned longの最大値
 };

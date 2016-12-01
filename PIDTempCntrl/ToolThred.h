@@ -11,7 +11,7 @@
 
 #include "ThreadBase.h"
 
-enum ButtonCircuitPattern
+enum struct ButtonCircuitPattern
 {
 	InputPullup,
 	Pullup,

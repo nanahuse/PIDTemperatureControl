@@ -9,47 +9,48 @@
 #include "WProgram.h"
 #endif
 #include <LiquidCrystal.h>
-#include <max6675.h>
+//#include <max6675.h>
 #include "ElectricFurnace.h"
 
 //cppのほうに温度の設定とか移動
 
 //--------------------------------------------------------定義とか--------------------------------------------------------
 //画面の表示状態を決める値。名前が変な気がする。
-enum DisplayMode
+enum struct DisplayMode
 {
-	DisplayMode_Temperature,
-	DisplayMode_Time,
-	DisplayMode_ControlInfo,
-	DisplayMode_END,
-	DisplayMode_Error
+	Temperature,
+	Time,
+	ControlInfo,
+	END,
+	Error
 };
 
 //Furnace(炉)の稼働状態を表す。Furnace::ShowStatusで返る値。
-enum FurnaceControllerStatus
+enum struct FurnaceControllerStatus
 {
-	FurnaceControllerStatus_Stop = 0,
-	FurnaceControllerStatus_Startup,
-	FurnaceControllerStatus_ToFirstKeepTemp,
-	FurnaceControllerStatus_KeepFirstKeepTemp,
-	FurnaceControllerStatus_ToSecondKeepTemp,
-	FurnaceControllerStatus_KeepSecondkeepTemp,
-	FurnaceControllerStatus_Finish,
-	FurnaceControllerStatus_FatalError //回復不可能なエラー
+	Stop = 0,
+	Startup,
+	ToFirstKeepTemp,
+	KeepFirstKeepTemp,
+	ToSecondKeepTemp,
+	KeepSecondkeepTemp,
+	Finish,
+	FatalError //回復不可能なエラー
 };
 
-enum FurnaceControllerError
+enum struct FurnaceControllerError
 {
-	FurnaceControllerError_None = 0,
-	FurnaceControllerError_NotEnoughTemperatureUpward,
-	FurnaceControllerError_TooHot,
-	FurnaceControllerError_StartupFailure //回復不能
+	None = 0,
+	NotEnoughTemperatureUpward,
+	TooHot,
+	StartupFailure //回復不能
 };
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
 
 //今回使用する熱電対をIThermometerの形にラップ
+/*
 class Thermocouple : public IThermometer
 {
 public:
@@ -57,6 +58,25 @@ public:
 	double Read();
 private:
 	MAX6675 thermocouple;
+};
+*/
+class TestThremo : public IThermometer
+{
+public:
+	TestThremo();
+	double Read();
+private :
+	double Value;
+};
+class  TestRelay : public IRelayController
+{
+public:
+	void Start();
+	void Stop();
+	void SetOutput(double Output);
+
+private:
+
 };
 
 class TemperatuerControllerThreadForPrepreg : public ITemperatureController, public ThreadBase
@@ -174,7 +194,7 @@ private:
 
 	TemperatuerControllerThreadForPrepreg& TemperatureControllerForPrepreg;
 
-//定数
+	//定数
 	static const unsigned long DisplayChangeTime; //画面の自動遷移の間隔
 	static const double Kp; //PIDパラメータ
 	static const double Ki; //PIDパラメータ

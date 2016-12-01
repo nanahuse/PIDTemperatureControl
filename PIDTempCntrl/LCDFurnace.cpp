@@ -44,7 +44,7 @@ const double SolidStateRelayThread::OutputLimitPerRelayOutputMax = OutputLimit /
 
 //--------------------------------------------------------クラスの定義--------------------------------------------------------
 
-
+/*
 Thermocouple::Thermocouple(int8_t SCKPin, int8_t MISOPin, int8_t SSPin) : thermocouple(SCKPin, MISOPin, SSPin)
 { }
 
@@ -63,7 +63,7 @@ double Thermocouple::Read()
 
 	return thermocouple.readCelsius();
 }
-
+*/
 SolidStateRelayThread::SolidStateRelayThread(uint8_t controlPin) :MainTimer(), SwitchingTimer(), SafetyTimer()
 {
 	ControlPin = controlPin;
@@ -104,8 +104,6 @@ void SolidStateRelayThread::Stop()
 
 bool SolidStateRelayThread::Tick()
 {
-	unsigned long TempTimer = millis();
-
 	if ( SafetyTimer.isRunning() )		//リレーが壊れないようにスイッチが完了するまではピンの切り替えを行わない。
 	{
 		if ( SafetyTimer.Tick() )
@@ -123,7 +121,7 @@ bool SolidStateRelayThread::Tick()
 		if ( OnTime >= ChangeTime ) //リレーの開放時間がリレーの切り替えより長いときのみ開放する．
 		{
 			digitalWrite(ControlPin, HIGH);
-			SafetyTimer.Start(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
+			SafetyTimer.Start(); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
 		}
 		if ( OnTime > Interval - ChangeTime )
 		{
@@ -133,14 +131,14 @@ bool SolidStateRelayThread::Tick()
 		{
 			SwitchingTimer.SetInterval(OnTime);
 		}
-		SwitchingTimer.Start(TempTimer); //
+		SwitchingTimer.Start(); //
 		return true;
 	}
 
 	if ( SwitchingTimer.Tick() )
 	{
 		digitalWrite(ControlPin, LOW);
-		SafetyTimer.Start(TempTimer); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
+		SafetyTimer.Start(); //リレーが壊れないようにスイッチ完了まで待つよ．SafetyTimer始動
 
 		SwitchingTimer.Stop();
 	}
@@ -157,9 +155,9 @@ void SolidStateRelayThread::SetOutput(double Output)
 	OnTime = (unsigned long)(Output*OutputLimitPerRelayOutputMax);
 }
 
-FurnaceDisplay::FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd, TemperatuerControllerThreadForPrepreg &temperatureController) :SolidStateRelay(ControlPin), FurnaceThread(SolidStateRelay, thermometer,temperatureController, Kp, Ki, Kd, Interval), DisplayChangeTimer(), LCD(lcd), TemperatureControllerForPrepreg(temperatureController)
+FurnaceDisplay::FurnaceDisplay(uint8_t ControlPin, IThermometer &thermometer, LiquidCrystal &lcd, TemperatuerControllerThreadForPrepreg &temperatureController) :SolidStateRelay(ControlPin), FurnaceThread(SolidStateRelay, thermometer, temperatureController, Kp, Ki, Kd, Interval), DisplayChangeTimer(), LCD(lcd), TemperatureControllerForPrepreg(temperatureController)
 {
-	NowDisplayMode = DisplayMode_Temperature;
+	NowDisplayMode = DisplayMode::Temperature;
 }
 
 void FurnaceDisplay::DataOutputBySerial()
@@ -170,7 +168,7 @@ void FurnaceDisplay::DataOutputBySerial()
 	Serial.print("\t");
 	Serial.print(GoalTemperature);
 	Serial.print("\t");
-	Serial.print(WorkStatus);
+	Serial.print(static_cast<int>(WorkStatus));
 	Serial.print("\t");
 	Serial.print(PIDOutput);
 	Serial.print("\t");
@@ -188,7 +186,7 @@ void FurnaceDisplay::Start()
 void FurnaceDisplay::Start(unsigned long intervalTimer)
 {
 	FurnaceThread::Start(intervalTimer);
-	NowDisplayMode = DisplayMode_Temperature;
+	NowDisplayMode = DisplayMode::Temperature;
 	DisplayChangeTimer.Start(intervalTimer);
 }
 
@@ -198,12 +196,12 @@ bool FurnaceDisplay::Tick()
 	{
 		switch ( TemperatureControllerForPrepreg.ShowStatus() )
 		{
-			case FurnaceControllerStatus_Finish:
-				NowDisplayMode = DisplayMode_END;
+			case FurnaceControllerStatus::Finish:
+				NowDisplayMode = DisplayMode::END;
 				DisplayChangeTimer.Stop();
 				break;
-			case FurnaceControllerStatus_FatalError:
-				NowDisplayMode = DisplayMode_Error;
+			case FurnaceControllerStatus::FatalError:
+				NowDisplayMode = DisplayMode::Error;
 				break;
 			default:
 
@@ -229,14 +227,14 @@ void FurnaceDisplay::PrevDisplay()
 {
 	switch ( NowDisplayMode )
 	{
-		case DisplayMode_Temperature:
-			NowDisplayMode = DisplayMode_ControlInfo;
+		case DisplayMode::Temperature:
+			NowDisplayMode = DisplayMode::ControlInfo;
 			break;
-		case DisplayMode_Time:
-			NowDisplayMode = DisplayMode_Temperature;
+		case DisplayMode::Time:
+			NowDisplayMode = DisplayMode::Temperature;
 			break;
-		case DisplayMode_ControlInfo:
-			NowDisplayMode = DisplayMode_Time;
+		case DisplayMode::ControlInfo:
+			NowDisplayMode = DisplayMode::Time;
 			break;
 		default:
 			break;
@@ -249,14 +247,14 @@ void FurnaceDisplay::NextDisplay()
 {
 	switch ( NowDisplayMode )
 	{
-		case DisplayMode_ControlInfo:
-			NowDisplayMode = DisplayMode_Temperature;
+		case DisplayMode::ControlInfo:
+			NowDisplayMode = DisplayMode::Temperature;
 			break;
-		case DisplayMode_Time:
-			NowDisplayMode = DisplayMode_ControlInfo;
+		case DisplayMode::Time:
+			NowDisplayMode = DisplayMode::ControlInfo;
 			break;
-		case DisplayMode_Temperature:
-			NowDisplayMode = DisplayMode_Time;
+		case DisplayMode::Temperature:
+			NowDisplayMode = DisplayMode::Time;
 			break;
 		default:
 			break;
@@ -294,19 +292,19 @@ void FurnaceDisplay::Update()
 {
 	switch ( NowDisplayMode )
 	{
-		case DisplayMode_Temperature:
+		case DisplayMode::Temperature:
 			DisplayTemperature();
 			break;
-		case DisplayMode_Time:
+		case DisplayMode::Time:
 			DisplayTime();
 			break;
-		case DisplayMode_ControlInfo:
+		case DisplayMode::ControlInfo:
 			DisplayControlInfo();
 			break;
-		case DisplayMode_END:
+		case DisplayMode::END:
 			DisplayENDMode();
 			break;
-		case DisplayMode_Error:
+		case DisplayMode::Error:
 			DisplayError();
 			break;
 		default:
@@ -348,23 +346,23 @@ void FurnaceDisplay::DisplayControlInfo()
 	LCD.print("STATUS : ");
 	switch ( TemperatureControllerForPrepreg.ShowStatus() )
 	{
-		case FurnaceControllerStatus_ToFirstKeepTemp:
+		case FurnaceControllerStatus::ToFirstKeepTemp:
 			LCD.print("To 80");
 			LCD.write(0xDF);
 			LCD.print("C");
 			break;
-		case FurnaceControllerStatus_KeepFirstKeepTemp:
+		case FurnaceControllerStatus::KeepFirstKeepTemp:
 			LCD.print("Keep 80");
 			break;
-		case FurnaceControllerStatus_ToSecondKeepTemp:
+		case FurnaceControllerStatus::ToSecondKeepTemp:
 			LCD.print("To130");
 			LCD.write(0xDF);
 			LCD.print("C");
 			break;
-		case FurnaceControllerStatus_KeepSecondkeepTemp:
+		case FurnaceControllerStatus::KeepSecondkeepTemp:
 			LCD.print("Keep130");
 			break;
-		case FurnaceControllerStatus_Finish:
+		case FurnaceControllerStatus::Finish:
 			LCD.print("COOLING");
 			break;
 		default:
@@ -397,7 +395,7 @@ void FurnaceDisplay::DisplayError()
 	LCD.print("ERROR");
 	LCD.setCursor(0, 1);
 	LCD.print("ERRORCODE : ");
-	LCD.print(TemperatureControllerForPrepreg.CheckError());
+	LCD.print(static_cast<int>(TemperatureControllerForPrepreg.CheckError()));
 }
 
 void FurnaceDisplay::PrintTemperature(double InputTemperature)
@@ -463,32 +461,32 @@ bool TemperatuerControllerThreadForPrepreg::Tick()
 {
 	if ( MainTimer.Tick() )
 	{
-		ErrorStatus = FurnaceControllerError_None;
+		ErrorStatus = FurnaceControllerError::None;
 		switch ( WorkStatus )
 		{
-			case FurnaceControllerStatus_Stop:
+			case FurnaceControllerStatus::Stop:
 				break;
 
-			case FurnaceControllerStatus_Startup:
+			case FurnaceControllerStatus::Startup:
 				if ( KeepTimer.Tick() )
 				{
 					KeepTimer.Stop();
 					if ( MinimumTemperature >= ErrorTemperature ) //始めの値から更新されてないときはエラーを吐く
 					{
 						this->Stop();
-						WorkStatus = FurnaceControllerStatus_FatalError;
-						ErrorStatus = FurnaceControllerError_StartupFailure;
+						WorkStatus = FurnaceControllerStatus::FatalError;
+						ErrorStatus = FurnaceControllerError::StartupFailure;
 					}
 					else
 					{
 						GoalTemperature = MinimumTemperature; //現在温度を目標値に設定する．
-						WorkStatus = FurnaceControllerStatus_ToFirstKeepTemp;
-						Order = FurnaceOrder_Work;
+						WorkStatus = FurnaceControllerStatus::ToFirstKeepTemp;
+						Order = FurnaceOrder::Work;
 					}
 				}
 				break;
 
-			case FurnaceControllerStatus_ToFirstKeepTemp:
+			case FurnaceControllerStatus::ToFirstKeepTemp:
 				if ( FirstKeepTemperature > MinimumTemperature + AllowableTemperatureError )
 				{
 					RisingTemperature();
@@ -499,19 +497,19 @@ bool TemperatuerControllerThreadForPrepreg::Tick()
 					KeepTimer.Start();
 					GoalTemperature = FirstKeepTemperature;
 					CalcFinishTime();
-					WorkStatus = FurnaceControllerStatus_KeepFirstKeepTemp;
+					WorkStatus = FurnaceControllerStatus::KeepFirstKeepTemp;
 				}
 				break;
 
-			case FurnaceControllerStatus_KeepFirstKeepTemp:
+			case FurnaceControllerStatus::KeepFirstKeepTemp:
 				if ( KeepTimer.Tick() )
 				{
 					KeepTimer.Stop();
-					WorkStatus = FurnaceControllerStatus_ToSecondKeepTemp;
+					WorkStatus = FurnaceControllerStatus::ToSecondKeepTemp;
 				}
 				break;
 
-			case FurnaceControllerStatus_ToSecondKeepTemp:
+			case FurnaceControllerStatus::ToSecondKeepTemp:
 				if ( SecondKeepTemperature > MinimumTemperature + AllowableTemperatureError )
 				{
 					RisingTemperature();
@@ -522,29 +520,30 @@ bool TemperatuerControllerThreadForPrepreg::Tick()
 					KeepTimer.Start();
 					GoalTemperature = SecondKeepTemperature;
 					CalcFinishTime();
-					WorkStatus = FurnaceControllerStatus_KeepSecondkeepTemp;
+					WorkStatus = FurnaceControllerStatus::KeepSecondkeepTemp;
 				}
 				break;
 
-			case FurnaceControllerStatus_KeepSecondkeepTemp:
+			case FurnaceControllerStatus::KeepSecondkeepTemp:
 				if ( KeepTimer.Tick() )
 				{ //焼き終わり。リレーをオフにして冷やしていく。
 					KeepTimer.Stop();
 					GoalTemperature = 0.0;
-					Order = FurnaceOrder_StopRelay;
-					WorkStatus = FurnaceControllerStatus_Finish;
+					Order = FurnaceOrder::StopRelay;
+					WorkStatus = FurnaceControllerStatus::Finish;
 				}
 				break;
 
-			case FurnaceControllerStatus_Finish:
+			case FurnaceControllerStatus::Finish:
 				//END
 				break;
 
-			case FurnaceControllerStatus_FatalError:
+			case FurnaceControllerStatus::FatalError:
 				//どうしたものか
 				this->Stop();
 				break;
 		}
+		return true;
 	}
 	return false;
 }
@@ -557,8 +556,8 @@ void TemperatuerControllerThreadForPrepreg::Start()
 	KeepTimer.SetInterval(10000); //十秒間温度を取得してもらう．
 	KeepTimer.Start();
 	StartTime = millis();
-	WorkStatus = FurnaceControllerStatus_Startup;
-	Order = FurnaceOrder_StopRelay;
+	WorkStatus = FurnaceControllerStatus::Startup;
+	Order = FurnaceOrder::StopRelay;
 }
 
 void TemperatuerControllerThreadForPrepreg::Stop()
@@ -567,8 +566,8 @@ void TemperatuerControllerThreadForPrepreg::Stop()
 	KeepTimer.Stop();
 	GoalTemperature = 0.0;
 	MinimumTemperature = 0.0;
-	WorkStatus = FurnaceControllerStatus_Stop;
-	Order = FurnaceOrder_StopAll;
+	WorkStatus = FurnaceControllerStatus::Stop;
+	Order = FurnaceOrder::StopAll;
 }
 
 bool TemperatuerControllerThreadForPrepreg::isRunning()
@@ -619,7 +618,7 @@ void TemperatuerControllerThreadForPrepreg::InputTemperature(double Temperature)
 	}
 	if ( Temperature > ErrorTemperature )
 	{
-		ErrorStatus = FurnaceControllerError_TooHot;
+		ErrorStatus = FurnaceControllerError::TooHot;
 	}
 }
 
@@ -629,7 +628,7 @@ void TemperatuerControllerThreadForPrepreg::RisingTemperature()
 
 	if ( GoalTemperature > MinimumTemperature + AllowableTemperatureError )
 	{
-		ErrorStatus = FurnaceControllerError_NotEnoughTemperatureUpward;
+		ErrorStatus = FurnaceControllerError::NotEnoughTemperatureUpward;
 		GoalTemperature = MinimumTemperature + AllowableTemperatureError;
 		CalcFinishTime();
 	}
@@ -641,12 +640,12 @@ void TemperatuerControllerThreadForPrepreg::CalcFinishTime()
 	unsigned long TempTime = 0;
 	FinishTime = millis();
 
-	if ( WorkStatus == FurnaceControllerStatus_ToFirstKeepTemp )
+	if ( WorkStatus == FurnaceControllerStatus::ToFirstKeepTemp )
 	{
 		TempTime += FirstKeepTime;
 	}
 
-	if ( WorkStatus <= FurnaceControllerStatus_ToSecondKeepTemp )
+	if ( WorkStatus <= FurnaceControllerStatus::ToSecondKeepTemp )
 	{
 		TempTime += SecondKeepTime;
 	}
@@ -659,3 +658,23 @@ void TemperatuerControllerThreadForPrepreg::CalcFinishTime()
 	}
 	FinishTime += TempTime;
 }
+
+TestThremo::TestThremo()
+{
+	Value = 0.0;
+}
+
+double TestThremo::Read()
+{
+	Value += 0.02;
+	return Value;
+}
+
+void TestRelay::Start()
+{ }
+
+void TestRelay::Stop()
+{ }
+
+void TestRelay::SetOutput(double Output)
+{ }
