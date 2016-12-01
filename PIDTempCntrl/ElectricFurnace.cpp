@@ -9,7 +9,7 @@ FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &th
 	MainTimer.SetInterval(interval);
 	PIDController.SetOutputLimits(0.0, RelayOutputMax);
 	PIDController.SetSampleTime(interval);
-	ErrorStatus = FurnaceThreadError_None;
+	ErrorStatus = FurnaceThreadError::None;
 	this->Stop();
 }
 
@@ -22,21 +22,21 @@ void FurnaceThread::Start(unsigned long intervalTimer)
 { 
 	GetTemperature();
 	MainTimer.Start(intervalTimer);
-	WorkStatus = FurnaceThreadStatus_StopRelay;
+	WorkStatus = FurnaceThreadStatus::StopRelay;
 }
 
 bool FurnaceThread::Tick()
 {
 	if ( MainTimer.Tick() )
 	{
-		ErrorStatus = FurnaceThreadError_None;
+		ErrorStatus = FurnaceThreadError::None;
 		GetOrder();
 
-		if ( WorkStatus == FurnaceThreadStatus_Stop ) return false;
+		if ( WorkStatus == FurnaceThreadStatus::Stop ) return false;
 
 		GetTemperature();
 
-		if ( WorkStatus == FurnaceThreadStatus_StopRelay ) return true;
+		if ( WorkStatus == FurnaceThreadStatus::StopRelay ) return true;
 		Serial.print(millis());
 		Serial.print("\t");
 		PIDController.Compute();
@@ -44,7 +44,7 @@ bool FurnaceThread::Tick()
 		RelayController.SetOutput(PIDOutput);
 		if ( PIDOutput == RelayOutputMax )
 		{
-			ErrorStatus = FurnaceThreadError_OutputShortage;
+			ErrorStatus = FurnaceThreadError::OutputShortage;
 		}
 
 		return true;
@@ -56,7 +56,7 @@ void FurnaceThread::Stop()
 {
 	RelayController.Stop();
 	MainTimer.Stop();
-	WorkStatus = FurnaceThreadStatus_Stop;
+	WorkStatus = FurnaceThreadStatus::Stop;
 }
 
 bool FurnaceThread::isRunning()
@@ -74,19 +74,19 @@ void FurnaceThread::GetOrder()
 {
 	switch ( TemperatureController.ShowOrderForFurnaceThread() )
 	{
-		case FurnaceOrder_Work:
-			if ( WorkStatus != FurnaceThreadStatus_Working )
+		case FurnaceOrder::Work:
+			if ( WorkStatus != FurnaceThreadStatus::Working )
 			{
-				WorkStatus = FurnaceThreadStatus_Working;
+				WorkStatus = FurnaceThreadStatus::Working;
 				RelayController.Start();
 			}
 			GoalTemperature = TemperatureController.ShowGoalTemperature();
 			break;
-		case FurnaceOrder_StopAll:
+		case FurnaceOrder::StopAll:
 			this->Stop();
 			break;
-		case FurnaceOrder_StopRelay:
-			WorkStatus = FurnaceThreadStatus_StopRelay;
+		case FurnaceOrder::StopRelay:
+			WorkStatus = FurnaceThreadStatus::StopRelay;
 			RelayController.Stop();
 			break;
 	}
