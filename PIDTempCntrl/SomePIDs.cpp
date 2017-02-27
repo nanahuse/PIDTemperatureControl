@@ -13,6 +13,7 @@ IPID::IPID(const double &Input, double &Output, const double &Setpoint, double k
 
 	IPID::SetTunings(kp, ki, kd);
 
+	Initialize();
 }
 
 void IPID::SetTunings(double Kp, double Ki, double Kd)
