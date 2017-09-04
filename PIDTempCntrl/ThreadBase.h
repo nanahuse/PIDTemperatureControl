@@ -39,7 +39,7 @@ class SimpleTimerThread : public ThreadBase
 public:
 	SimpleTimerThread();
 
-	virtual bool Tick();
+	virtual bool Tick(); //インターバルの時間だけ経過したら一度だけtrueを返し，その後次のインターバルまでfalseを返す
 	virtual void Start();
 	virtual void Start(unsigned long intervalTimer); //動作を開始する．IntervalTimerを任意の時間に設定しすることで処理のタイミングを調整出来る．過去の時間を設定した場合でも未来の時間までずらしていきなり動作することを防ぐ．
 	virtual void Stop();

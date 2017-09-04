@@ -33,7 +33,22 @@
     <ClInclude Include="ThreadBase.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ToolThred.h">
+    <ClInclude Include="ButtonThread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BuzzerThread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SolidStateRelayThread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ThermocoupleMAX6675.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Construct.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FurnaceControllerHostThreadForPrepreg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -47,10 +62,25 @@
     <ClCompile Include="SomePIDs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ToolThred.cpp">
+    <ClCompile Include="ThreadBase.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadBase.cpp">
+    <ClCompile Include="ButtonThread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BuzzerThread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SolidStateRelayThread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ThermocoupleMAX6675.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Construct.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FurnaceControllerHostThreadForPrepreg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -11,14 +11,6 @@
 
 #include "ThreadBase.h"
 
-enum struct ButtonCircuitPattern
-{
-	InputPullup,
-	Pullup,
-	Pulldown
-};
-
-
 /*
 擬似並列実行可能なブザー
 一度だけ鳴らす、一定周期ごとに繰り返し鳴らすのどちらかが可能。
@@ -38,27 +30,6 @@ private:
 	SimpleTimerThread MainTimer;
 	SimpleTimerThread LengthTimer;
 	uint8_t ControlPin;
-};
-
-
-/*
-INPUT_PULLUPを使ったボタンクラス。タクトスイッチの接続に注意。
-CanRepeatをFalseにすると一度だけ
-CanRepeatをTrueにすると押しっぱなしの時はRepeatTimeの間隔でTrueを返す。
-ループしながらボタン入力をするときを想定。
-*/
-class ButtonClass
-{
-public:
-	ButtonClass(uint8_t controlPin,ButtonCircuitPattern pattern, bool canRepeat);
-	void SetRepeatTime(unsigned long RepeatTime);
-	void SetCanRepeat(bool canRepeat);
-	bool isPressed();
-private:
-	SimpleTimerThread Timer;
-	uint8_t ControlPin;
-	bool OldStatus;
-	bool CanRepeat;
 };
 
 #endif

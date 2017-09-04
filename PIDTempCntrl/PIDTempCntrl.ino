@@ -1,5 +1,10 @@
-#include "ToolThred.h"
+#include "Construct.h"
 #include "LCDFurnace.h"
+#include "FurnaceControllerHostThreadForPrepreg.h"
+#include "ThermocoupleMAX6675.h"
+#include "SolidStateRelayThread.h"
+#include "ButtonThread.h"
+#include "BuzzerThread.h"
 #include <LiquidCrystal.h>
 
 //--------------------------------------------------------ピンの設定--------------------------------------------------------
@@ -28,7 +33,7 @@ const uint8_t  BuzzerPin = 13; //Buzzer
 TestThremo thermocouple = TestThremo();
 SolidStateRelayThread relay = SolidStateRelayThread(SSRControlPin);
 BuzzerThread Buzzer = BuzzerThread(BuzzerPin);
-TemperatuerControllerThreadForPrepreg TemperatureController = TemperatuerControllerThreadForPrepreg();
+FurnaceControllerHostThreadForPrepreg TemperatureController = FurnaceControllerHostThreadForPrepreg();
 FurnaceThread Furnace = FurnaceThread(relay, thermocouple, TemperatureController, 1, 1, 1, 1000);
 
 //ButtonClass RightButton = ButtonClass(RightSwitchPin,Pullup, false);

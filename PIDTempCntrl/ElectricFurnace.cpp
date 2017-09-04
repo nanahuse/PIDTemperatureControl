@@ -1,13 +1,13 @@
-// 
+﻿// 
 // 
 // 
 #include "ElectricFurnace.h"
 
-FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &thermometer, ITemperatureController &temperatureController,double Kp,double Ki,double Kd,double interval) :MainTimer(), RelayController(relayController), Thermometer(thermometer),TemperatureController(temperatureController), PIDController(NowTemperature,PIDOutput,GoalTemperature,Kp,Ki,Kd,500.0)
+FurnaceThread::FurnaceThread(IRelayController &relayController, IThermometer &thermometer, IFurnaceControllerHost &temperatureController,double Kp,double Ki,double Kd,double interval) :MainTimer(), RelayController(relayController), Thermometer(thermometer),TemperatureController(temperatureController), PIDController(NowTemperature,PIDOutput,GoalTemperature,Kp,Ki,Kd,500.0)
 {
 	NowTemperature = 0.0;
 	MainTimer.SetInterval(interval);
-	PIDController.SetOutputLimits(0.0, RelayOutputMax);
+	PIDController.SetOutputLimits(0.0, RelayInputMax);
 	PIDController.SetSampleTime(interval);
 	ErrorStatus = FurnaceThreadError::None;
 	this->Stop();
@@ -42,7 +42,7 @@ bool FurnaceThread::Tick()
 		PIDController.Compute();
 		Serial.println(millis());
 		RelayController.SetOutput(PIDOutput);
-		if ( PIDOutput == RelayOutputMax )
+		if ( PIDOutput == RelayInputMax )
 		{
 			ErrorStatus = FurnaceThreadError::OutputShortage;
 		}
@@ -106,5 +106,9 @@ FurnaceThreadStatus FurnaceThread::ShowStatus()
 FurnaceThreadError FurnaceThread::CheckError()
 {
 	return ErrorStatus;
+}
+
+double FurnaceThread::ShowTemperature( ) {
+	return NowTemperature;
 }
 
